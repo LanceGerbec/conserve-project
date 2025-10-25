@@ -1,4 +1,4 @@
-// routes/admin.js
+// routes/admin.js - FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const Research = require('../models/Research');
@@ -7,8 +7,7 @@ const User = require('../models/User');
 const { protect, adminOnly } = require('../middleware/auth');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/email');
 
-// FIX: Make getting subjects public (no auth required)
-// Move this BEFORE the authentication middleware
+// Public route - no auth required
 router.get('/subjects', async (req, res) => {
   try {
     const subjects = await SubjectArea.find({ isActive: true }).sort({ name: 1 });
@@ -19,9 +18,24 @@ router.get('/subjects', async (req, res) => {
   }
 });
 
-// THEN add authentication for other routes
+// Add authentication for other routes
 router.use(protect);
 router.use(adminOnly);
+
+// ⭐ NEW: Get all research (for management page)
+router.get('/research/all', async (req, res) => {
+  try {
+    const researches = await Research.find({ isActive: true })
+      .populate('subjectArea', 'name')
+      .populate('submittedBy', 'firstName lastName email')
+      .sort({ submittedAt: -1 });
+
+    res.json({ success: true, researches });
+  } catch (error) {
+    console.error('Get all research error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // Get pending research
 router.get('/research/pending', async (req, res) => {
@@ -34,6 +48,35 @@ router.get('/research/pending', async (req, res) => {
     res.json({ success: true, researches });
   } catch (error) {
     console.error('Get pending research error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ⭐ NEW: Update research details
+router.put('/research/:id', async (req, res) => {
+  try {
+    const { title, subjectArea, yearPublished } = req.body;
+
+    const research = await Research.findById(req.params.id);
+    if (!research) {
+      return res.status(404).json({ message: 'Research not found' });
+    }
+
+    // Update fields
+    if (title) research.title = title;
+    if (subjectArea) research.subjectArea = subjectArea;
+    if (yearPublished) research.yearPublished = yearPublished;
+    research.updatedAt = Date.now();
+
+    await research.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Research updated successfully',
+      research 
+    });
+  } catch (error) {
+    console.error('Update research error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
