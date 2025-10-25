@@ -7,7 +7,7 @@ const SubjectArea = require('../models/SubjectArea');
 const Analytics = require('../models/Analytics');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const upload = require('../middleware/cloudinaryUpload');
 const { fuzzySearch } = require('../utils/fuzzySearch');
 const mongoose = require('mongoose');
 

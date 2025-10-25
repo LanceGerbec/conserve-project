@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 const TeamMember = require('../models/TeamMember');
 const { protect, adminOnly } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const upload = require('../middleware/cloudinaryUpload');
 
 // Get all team members (public - no auth required)
 router.get('/', async (req, res) => {

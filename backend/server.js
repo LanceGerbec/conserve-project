@@ -24,12 +24,10 @@ const app = express();
 // Connect to Database
 connectDB();
 
-// CORS Configuration - UPDATED FOR PRODUCTION
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://conserve-frontend.vercel.app' // Your frontend URL
-];
-
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.FRONTEND_URL]
+  : ['http://localhost:3000', 'http://localhost:3001'];
+  
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
