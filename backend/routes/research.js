@@ -255,8 +255,8 @@ router.post('/submit',
         keywords: cleanKeywords,
         subjectArea: subjectArea,
         yearPublished: parseInt(yearPublished),
-        pdfUrl: `/uploads/${req.files.pdf[0].filename}`,
-        coverImage: req.files.coverImage ? `/uploads/${req.files.coverImage[0].filename}` : null,
+        pdfUrl: req.files.pdf[0].path,  // Cloudinary URL
+coverImage: req.files.coverImage ? req.files.coverImage[0].path : null,  // Cloudinary URL
         submittedBy: req.user.id,
         status: 'pending'
       });

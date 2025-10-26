@@ -76,14 +76,14 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Create uploads directory
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('📁 Created uploads directory');
-}
+//const uploadsDir = path.join(__dirname, 'uploads');
+//if (!fs.existsSync(uploadsDir)) {
+//  fs.mkdirSync(uploadsDir, { recursive: true });
+ console.log('📁 Created uploads directory');
+//}
 
 // Serve uploaded files
-app.use('/uploads', express.static(uploadsDir));
+//app.use('/uploads', express.static(uploadsDir));
 
 // Request logger
 app.use((req, res, next) => {
