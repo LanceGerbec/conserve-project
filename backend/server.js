@@ -24,15 +24,25 @@ const app = express();
 // Connect to Database
 connectDB();
 
+// CORS Configuration - FIXED
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL]
+  ? [
+      process.env.FRONTEND_URL,
+      'https://conserve-frontend.vercel.app',
+      'https://conserve-backend.vercel.app'
+    ].filter(Boolean)
   : ['http://localhost:3000', 'http://localhost:3001'];
-  
+
+console.log('🌐 Allowed CORS origins:', allowedOrigins);
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`⚠️ CORS blocked: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -42,7 +52,6 @@ app.use(cors({
 }));
 
 app.options('*', cors());
-
 
 // Security
 app.use(helmet({ 

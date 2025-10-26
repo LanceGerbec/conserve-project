@@ -3,12 +3,24 @@
 
 import axios from 'axios';
 
+// API Configuration with fallback
+const getApiUrl = () => {
+  if (window.location.hostname !== 'localhost') {
+    return process.env.REACT_APP_API_URL || 'https://conserve-backend.vercel.app/api';
+  }
+  return process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+};
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiUrl(),
   headers: {
     'Content-Type': 'application/json'
   }
 });
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔗 API URL:', getApiUrl());
+}
 
 // Add token to every request
 api.interceptors.request.use(

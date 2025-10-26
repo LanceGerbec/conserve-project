@@ -23,6 +23,7 @@ import SubjectManagement from './pages/SubjectManagement';
 import UserManagement from './pages/UserManagement';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AdminResearchManagement from './pages/AdminResearchManagement';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import './index.css';
 
