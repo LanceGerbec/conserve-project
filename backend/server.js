@@ -121,7 +121,14 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    env: {
+      nodeEnv: process.env.NODE_ENV,
+      hasMongoUri: !!process.env.MONGODB_URI,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      hasEmailUser: !!process.env.EMAIL_USER,
+      hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
+    }
   });
 });
 
