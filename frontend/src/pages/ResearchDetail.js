@@ -1,4 +1,4 @@
-// src/pages/ResearchDetail.js - With View PDF & Download Options
+// src/pages/ResearchDetail.js - FIXED FOR CLOUDINARY
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -70,9 +70,10 @@ const ResearchDetail = () => {
       return;
     }
 
-    // Build full URL
-    const baseURL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const pdfUrl = `${baseURL}${research.pdfUrl}`;
+    // ✅ FIX: Cloudinary URLs are already complete - use them directly
+    const pdfUrl = research.pdfUrl;
+    
+    console.log('Opening PDF:', pdfUrl);
     
     // Open PDF in new tab
     window.open(pdfUrl, '_blank');
@@ -84,14 +85,14 @@ const ResearchDetail = () => {
       // Track download
       await api.get(`/research/${id}/download`);
       
-      // Build full URL
-      const baseURL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-      const pdfUrl = `${baseURL}${research.pdfUrl}`;
+      // ✅ FIX: Use Cloudinary URL directly
+      const pdfUrl = research.pdfUrl;
       
       // Create download link
       const link = document.createElement('a');
       link.href = pdfUrl;
       link.download = `${research.title}.pdf`;
+      link.target = '_blank'; // Open in new tab as fallback
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

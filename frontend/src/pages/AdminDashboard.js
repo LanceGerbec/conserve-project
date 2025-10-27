@@ -1,4 +1,4 @@
-// src/pages/AdminDashboard.js - COMPLETE WITH PDF PREVIEW + IMRaD CHECK
+// src/pages/AdminDashboard.js - FIXED FOR CLOUDINARY
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -80,8 +80,9 @@ const AdminDashboard = () => {
   };
 
   const handleViewPDF = (research) => {
-    const baseURL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const pdfUrl = `${baseURL}${research.pdfUrl}`;
+    // ✅ FIX: Use Cloudinary URL directly
+    const pdfUrl = research.pdfUrl;
+    console.log('Opening PDF:', pdfUrl);
     window.open(pdfUrl, '_blank');
     toast.success('Opening PDF in new tab...');
   };
