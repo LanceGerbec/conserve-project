@@ -1,4 +1,4 @@
-// routes/admin.js - FIXED VERSION
+// routes/admin.js - COMPLETE FILE WITH PDF FIX
 const express = require('express');
 const router = express.Router();
 const Research = require('../models/Research');
@@ -6,6 +6,23 @@ const SubjectArea = require('../models/SubjectArea');
 const User = require('../models/User');
 const { protect, adminOnly } = require('../middleware/auth');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/email');
+
+// ✅ HELPER FUNCTION: Modify Cloudinary URL for viewing
+function getViewableCloudinaryUrl(url) {
+  if (!url || !url.includes('cloudinary.com')) {
+    return url;
+  }
+  
+  // Remove any existing fl_attachment flags
+  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*/g, '');
+  
+  // Add fl_attachment:false to force inline viewing
+  if (modifiedUrl.includes('/upload/')) {
+    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_attachment:false/');
+  }
+  
+  return modifiedUrl;
+}
 
 // Public route - no auth required
 router.get('/subjects', async (req, res) => {
@@ -22,13 +39,22 @@ router.get('/subjects', async (req, res) => {
 router.use(protect);
 router.use(adminOnly);
 
-// ⭐ NEW: Get all research (for management page)
+// ⭐ UPDATED: Get all research (for management page)
 router.get('/research/all', async (req, res) => {
   try {
-    const researches = await Research.find({ isActive: true })
+    let researches = await Research.find({ isActive: true })
       .populate('subjectArea', 'name')
       .populate('submittedBy', 'firstName lastName email')
       .sort({ submittedAt: -1 });
+
+    // ✅ Convert URLs to viewable format
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
 
     res.json({ success: true, researches });
   } catch (error) {
@@ -37,13 +63,22 @@ router.get('/research/all', async (req, res) => {
   }
 });
 
-// Get pending research
+// ⭐ UPDATED: Get pending research
 router.get('/research/pending', async (req, res) => {
   try {
-    const researches = await Research.find({ status: 'pending' })
+    let researches = await Research.find({ status: 'pending' })
       .populate('subjectArea', 'name')
       .populate('submittedBy', 'firstName lastName email')
       .sort({ submittedAt: -1 });
+
+    // ✅ Convert URLs to viewable format
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
 
     res.json({ success: true, researches });
   } catch (error) {
@@ -52,7 +87,7 @@ router.get('/research/pending', async (req, res) => {
   }
 });
 
-// ⭐ NEW: Update research details
+// Update research details
 router.put('/research/:id', async (req, res) => {
   try {
     const { title, subjectArea, yearPublished } = req.body;

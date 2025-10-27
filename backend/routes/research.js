@@ -1,4 +1,3 @@
-// routes/research.js - COMPLETE FIXED VERSION FOR CLOUDINARY
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
@@ -10,6 +9,23 @@ const { protect } = require('../middleware/auth');
 const upload = require('../middleware/cloudinaryUpload');
 const { fuzzySearch } = require('../utils/fuzzySearch');
 const mongoose = require('mongoose');
+
+// ✅ HELPER FUNCTION: Modify Cloudinary URL for viewing
+function getViewableCloudinaryUrl(url) {
+  if (!url || !url.includes('cloudinary.com')) {
+    return url;
+  }
+  
+  // Remove any existing fl_attachment flags
+  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*/g, '');
+  
+  // Add fl_attachment:false to force inline viewing
+  if (modifiedUrl.includes('/upload/')) {
+    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_attachment:false/');
+  }
+  
+  return modifiedUrl;
+}
 
 // ====================================
 // PUBLIC ROUTES (No authentication)
@@ -30,7 +46,6 @@ router.get('/', async (req, res) => {
 
     let query = { status: 'approved', isActive: true };
 
-    // Apply filters
     if (subjectArea) query.subjectArea = subjectArea;
     if (year) query.yearPublished = parseInt(year);
     if (author) {
@@ -39,7 +54,6 @@ router.get('/', async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Sorting options
     let sortOption = {};
     switch (sort) {
       case 'popular':
@@ -62,10 +76,18 @@ router.get('/', async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Apply fuzzy search if search query exists
     if (search && search.trim()) {
       researches = fuzzySearch(search, researches);
     }
+
+    // ✅ Convert URLs to viewable format
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
 
     const total = await Research.countDocuments(query);
 
@@ -88,10 +110,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get popular research (most viewed)
+// Get popular research
 router.get('/popular', async (req, res) => {
   try {
-    const researches = await Research.find({ 
+    let researches = await Research.find({ 
       status: 'approved', 
       isActive: true 
     })
@@ -99,6 +121,15 @@ router.get('/popular', async (req, res) => {
       .populate('submittedBy', 'firstName lastName')
       .sort({ viewCount: -1 })
       .limit(6);
+
+    // ✅ Convert URLs
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
 
     res.json({ success: true, researches });
   } catch (error) {
@@ -113,7 +144,7 @@ router.get('/popular', async (req, res) => {
 // Get recent research
 router.get('/recent', async (req, res) => {
   try {
-    const researches = await Research.find({ 
+    let researches = await Research.find({ 
       status: 'approved', 
       isActive: true 
     })
@@ -121,6 +152,15 @@ router.get('/recent', async (req, res) => {
       .populate('submittedBy', 'firstName lastName')
       .sort({ approvedAt: -1 })
       .limit(6);
+
+    // ✅ Convert URLs
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
 
     res.json({ success: true, researches });
   } catch (error) {
@@ -132,7 +172,7 @@ router.get('/recent', async (req, res) => {
   }
 });
 
-// Get single research by ID
+// ✅ FIXED: Get single research by ID
 router.get('/:id', async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -165,7 +205,13 @@ router.get('/:id', async (req, res) => {
       metadata: { title: research.title }
     });
 
-    res.json({ success: true, research });
+    // ✅ Convert PDF URL to viewable format
+    const researchData = research.toObject();
+    if (researchData.pdfUrl) {
+      researchData.pdfUrl = getViewableCloudinaryUrl(researchData.pdfUrl);
+    }
+
+    res.json({ success: true, research: researchData });
   } catch (error) {
     console.error('Get research by ID error:', error);
     res.status(500).json({ 
@@ -179,7 +225,7 @@ router.get('/:id', async (req, res) => {
 // PROTECTED ROUTES (Requires login)
 // ====================================
 
-// Submit new research - FIXED FOR CLOUDINARY
+// Submit new research
 router.post('/submit', 
   protect,
   upload.fields([
@@ -188,33 +234,22 @@ router.post('/submit',
   ]),
   async (req, res) => {
     try {
-      console.log('📥 Received submission request');
-      console.log('📋 Body:', req.body);
-      console.log('📎 Files:', req.files);
-      
-      // ==========================================
-      // VALIDATION
-      // ==========================================
       const errors = [];
 
-      // Title validation
       if (!req.body.title || !req.body.title.trim()) {
         errors.push({ field: 'title', message: 'Title is required' });
       }
 
-      // Abstract validation
       if (!req.body.abstract || !req.body.abstract.trim()) {
         errors.push({ field: 'abstract', message: 'Abstract is required' });
       }
 
-      // Subject Area validation
       if (!req.body.subjectArea || !req.body.subjectArea.trim()) {
         errors.push({ field: 'subjectArea', message: 'Subject area is required' });
       } else if (!mongoose.Types.ObjectId.isValid(req.body.subjectArea)) {
         errors.push({ field: 'subjectArea', message: 'Invalid subject area ID' });
       }
 
-      // Year validation
       if (!req.body.yearPublished) {
         errors.push({ field: 'yearPublished', message: 'Year published is required' });
       } else {
@@ -224,7 +259,6 @@ router.post('/submit',
         }
       }
 
-      // Parse and validate authors
       let authors;
       try {
         authors = typeof req.body.authors === 'string' 
@@ -243,7 +277,6 @@ router.post('/submit',
         errors.push({ field: 'authors', message: 'Invalid authors format' });
       }
 
-      // Parse and validate keywords
       let keywords;
       try {
         keywords = typeof req.body.keywords === 'string' 
@@ -262,14 +295,11 @@ router.post('/submit',
         errors.push({ field: 'keywords', message: 'Invalid keywords format' });
       }
 
-      // Check PDF file
       if (!req.files || !req.files.pdf || !req.files.pdf[0]) {
         errors.push({ field: 'pdf', message: 'PDF file is required' });
       }
 
-      // Return validation errors
       if (errors.length > 0) {
-        console.log('❌ Validation errors:', errors);
         return res.status(400).json({ 
           success: false,
           message: 'Validation failed',
@@ -277,23 +307,11 @@ router.post('/submit',
         });
       }
 
-      // ==========================================
-      // CREATE RESEARCH DOCUMENT
-      // ==========================================
       const { title, abstract, subjectArea, yearPublished } = req.body;
 
-      // Clean authors and keywords
       const cleanAuthors = authors.filter(a => a.name && a.name.trim());
       const cleanKeywords = keywords.filter(k => k && k.trim());
 
-      console.log('✅ Validation passed, creating research document...');
-      console.log('📄 PDF Cloudinary URL:', req.files.pdf[0].path);
-      if (req.files.coverImage) {
-        console.log('🖼️ Cover Image Cloudinary URL:', req.files.coverImage[0].path);
-      }
-
-      // ✅ FIX: Use Cloudinary URLs directly
-      // req.files.pdf[0].path contains the full Cloudinary URL
       const research = await Research.create({
         title: title.trim(),
         abstract: abstract.trim(),
@@ -301,15 +319,11 @@ router.post('/submit',
         keywords: cleanKeywords,
         subjectArea: subjectArea,
         yearPublished: parseInt(yearPublished),
-        pdfUrl: req.files.pdf[0].path,  // ✅ Full Cloudinary URL
-        coverImage: req.files.coverImage ? req.files.coverImage[0].path : null,  // ✅ Full Cloudinary URL
+        pdfUrl: req.files.pdf[0].path,
+        coverImage: req.files.coverImage ? req.files.coverImage[0].path : null,
         submittedBy: req.user.id,
         status: 'pending'
       });
-
-      console.log('✅ Research created successfully!');
-      console.log('🆔 Research ID:', research._id);
-      console.log('📄 PDF URL:', research.pdfUrl);
 
       res.status(201).json({
         success: true,
@@ -324,9 +338,8 @@ router.post('/submit',
       });
 
     } catch (error) {
-      console.error('❌ Submit research error:', error);
+      console.error('Submit research error:', error);
       
-      // Handle specific MongoDB errors
       if (error.name === 'ValidationError') {
         const validationErrors = Object.keys(error.errors).map(key => ({
           field: key,
@@ -370,7 +383,6 @@ router.post('/:id/bookmark', protect, async (req, res) => {
     const bookmarkIndex = user.bookmarks.indexOf(research._id);
 
     if (bookmarkIndex > -1) {
-      // Remove bookmark
       user.bookmarks.splice(bookmarkIndex, 1);
       research.bookmarkCount = Math.max(0, research.bookmarkCount - 1);
       await user.save();
@@ -382,7 +394,6 @@ router.post('/:id/bookmark', protect, async (req, res) => {
         bookmarked: false 
       });
     } else {
-      // Add bookmark
       user.bookmarks.push(research._id);
       research.bookmarkCount += 1;
       await user.save();
@@ -421,11 +432,9 @@ router.get('/:id/download', async (req, res) => {
       });
     }
 
-    // Increment download count
     research.downloadCount += 1;
     await research.save();
 
-    // Log analytics
     await Analytics.create({
       type: 'download',
       research: research._id
@@ -433,7 +442,7 @@ router.get('/:id/download', async (req, res) => {
 
     res.json({ 
       success: true, 
-      downloadUrl: research.pdfUrl  // ✅ Return full Cloudinary URL
+      downloadUrl: research.pdfUrl
     });
   } catch (error) {
     console.error('Download tracking error:', error);
@@ -454,9 +463,18 @@ router.get('/user/bookmarks', protect, async (req, res) => {
         populate: { path: 'subjectArea', select: 'name' }
       });
 
+    // ✅ Convert URLs
+    const bookmarks = user.bookmarks.map(b => {
+      const obj = b.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
+
     res.json({ 
       success: true, 
-      bookmarks: user.bookmarks 
+      bookmarks 
     });
   } catch (error) {
     console.error('Get bookmarks error:', error);
