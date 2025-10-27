@@ -64,13 +64,14 @@ const ResearchDetail = () => {
     }
   };
 
+  // ✅ FIXED: Use Cloudinary URL directly
   const handleViewPDF = () => {
     if (!research || !research.pdfUrl) {
       toast.error('PDF not available');
       return;
     }
 
-    // ✅ FIX: Cloudinary URLs are already complete - use them directly
+    // Use Cloudinary URL directly (already complete)
     const pdfUrl = research.pdfUrl;
     
     console.log('Opening PDF:', pdfUrl);
@@ -80,12 +81,13 @@ const ResearchDetail = () => {
     toast.success('Opening PDF...');
   };
 
+  // ✅ FIXED: Use Cloudinary URL directly
   const handleDownload = async () => {
     try {
       // Track download
       await api.get(`/research/${id}/download`);
       
-      // ✅ FIX: Use Cloudinary URL directly
+      // Use Cloudinary URL directly
       const pdfUrl = research.pdfUrl;
       
       // Create download link
