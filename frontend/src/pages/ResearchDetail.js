@@ -1,4 +1,4 @@
-// src/pages/ResearchDetail.js - FIXED FOR CLOUDINARY PDF VIEWING
+// src/pages/ResearchDetail.js - FIXED PDF VIEWING
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -64,50 +64,80 @@ const ResearchDetail = () => {
     }
   };
 
-  // ✅ FIXED: Use Cloudinary URL directly with inline viewing
+  // ✅ FIXED: View PDF in new tab (inline viewing)
   const handleViewPDF = () => {
     if (!research || !research.pdfUrl) {
       toast.error('PDF not available');
       return;
     }
 
-    // Use Cloudinary URL and force inline viewing
-    let pdfUrl = research.pdfUrl;
+    // Open PDF in new tab with inline viewing
+    const pdfUrl = research.pdfUrl;
     
-    // Add Cloudinary flag to prevent download and force inline viewing
-    if (pdfUrl.includes('cloudinary.com') && pdfUrl.includes('/upload/')) {
-      pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+    // For Cloudinary URLs, ensure inline viewing
+    if (pdfUrl.includes('cloudinary.com')) {
+      // Remove any existing fl_attachment parameter
+      let cleanUrl = pdfUrl.replace(/\/fl_attachment[^/]*\//, '/');
+      
+      // Add fl_attachment:false to force inline viewing
+      if (cleanUrl.includes('/upload/')) {
+        cleanUrl = cleanUrl.replace('/upload/', '/upload/fl_attachment:false/');
+      }
+      
+      window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      // For non-Cloudinary URLs, open directly
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
     }
     
-    console.log('Opening PDF:', pdfUrl);
-    
-    // Open PDF in new tab
-    window.open(pdfUrl, '_blank');
-    toast.success('Opening PDF...');
+    toast.success('Opening PDF in new tab...');
   };
 
-  // ✅ FIXED: Use Cloudinary URL directly
+  // ✅ FIXED: Download PDF (force download)
   const handleDownload = async () => {
     try {
+      if (!research || !research.pdfUrl) {
+        toast.error('PDF not available');
+        return;
+      }
+
       // Track download
       await api.get(`/research/${id}/download`);
       
-      // Use Cloudinary URL directly
       const pdfUrl = research.pdfUrl;
       
-      // Create download link
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = `${research.title}.pdf`;
-      link.target = '_blank'; // Open in new tab as fallback
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // For Cloudinary URLs, force download
+      if (pdfUrl.includes('cloudinary.com')) {
+        // Add fl_attachment parameter to force download
+        let downloadUrl = pdfUrl.replace(/\/fl_attachment[^/]*\//, '/');
+        
+        if (downloadUrl.includes('/upload/')) {
+          downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+        }
+        
+        // Create temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${research.title}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For non-Cloudinary URLs, use direct download
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = `${research.title}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
       
       toast.success('Download started');
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('Failed to download');
+      toast.error('Failed to download PDF');
     }
   };
 
@@ -190,7 +220,7 @@ const ResearchDetail = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-8 pb-8 border-b">
-            {/* VIEW PDF Button */}
+            {/* VIEW PDF Button - Opens in new tab */}
             <button
               onClick={handleViewPDF}
               className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium shadow-md"
@@ -199,7 +229,7 @@ const ResearchDetail = () => {
               <span>View PDF</span>
             </button>
 
-            {/* DOWNLOAD PDF Button */}
+            {/* DOWNLOAD PDF Button - Forces download */}
             <button
               onClick={handleDownload}
               className="flex items-center space-x-2 px-6 py-3 bg-navy-700 text-white rounded-lg hover:bg-navy-800 transition font-medium shadow-md"
