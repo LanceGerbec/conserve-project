@@ -1,4 +1,4 @@
-// src/pages/AdminDashboard.js - FIXED FOR CLOUDINARY
+// src/pages/AdminDashboard.js - FIXED FOR CLOUDINARY PDF VIEWING
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -79,13 +79,22 @@ const AdminDashboard = () => {
     setReviewNotes('Your research paper does not follow the required IMRaD format (Introduction, Methods, Results, and Discussion). Please restructure your paper according to IMRaD standards and resubmit. All sections must be clearly labeled and present. Refer to our submission guidelines for detailed information on the IMRaD format requirements.');
   };
 
-const handleViewPDF = (research) => {
-  // ✅ FIX: Use Cloudinary URL directly
-  const pdfUrl = research.pdfUrl;
-  console.log('Opening PDF:', pdfUrl);
-  window.open(pdfUrl, '_blank');
-  toast.success('Opening PDF in new tab...');
-};
+  const handleViewPDF = (research) => {
+    // ✅ FIX: Add fl_attachment=false to force viewing instead of downloading
+    let pdfUrl = research.pdfUrl;
+    
+    // If it's a Cloudinary URL, add the flag to prevent download
+    if (pdfUrl.includes('cloudinary.com')) {
+      // Add fl_attachment=false parameter to force inline viewing
+      if (pdfUrl.includes('/upload/')) {
+        pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+      }
+    }
+    
+    console.log('Opening PDF:', pdfUrl);
+    window.open(pdfUrl, '_blank');
+    toast.success('Opening PDF in new tab...');
+  };
 
   const toggleAbstract = (id) => {
     setShowFullAbstract(prev => ({
@@ -460,7 +469,7 @@ const handleViewPDF = (research) => {
               <button onClick={() => { setSelectedResearch(null); setReviewNotes(''); }} className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-medium text-gray-700">
                 Cancel
               </button>
-              <button onClick={() => handleReject(selectedResearch._id)} className="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium">
+              <button onClick={() => handleReject(selectedResearch._id)} className="flex-1 px-6 py-3 bg-gradient-to--r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium">
                 Reject & Send Feedback
               </button>
             </div>
