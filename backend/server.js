@@ -1,4 +1,4 @@
-// server.js - FIXED VERSION
+// server.js - FIXED VERSION FOR CLOUDINARY
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -77,6 +77,8 @@ app.use('/api', limiter);
 
 // ⚠️ REMOVED LOCAL FILE SERVING - Using Cloudinary instead
 // Files are stored in Cloudinary and accessed via their URLs
+// OLD CODE (REMOVED):
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Request logger
 app.use((req, res, next) => {
