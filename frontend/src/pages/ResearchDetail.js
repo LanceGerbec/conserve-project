@@ -1,4 +1,4 @@
-// src/pages/ResearchDetail.js - FIXED FOR CLOUDINARY
+// src/pages/ResearchDetail.js - FIXED FOR CLOUDINARY PDF VIEWING
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -64,15 +64,20 @@ const ResearchDetail = () => {
     }
   };
 
-  // ✅ FIXED: Use Cloudinary URL directly
+  // ✅ FIXED: Use Cloudinary URL directly with inline viewing
   const handleViewPDF = () => {
     if (!research || !research.pdfUrl) {
       toast.error('PDF not available');
       return;
     }
 
-    // Use Cloudinary URL directly (already complete)
-    const pdfUrl = research.pdfUrl;
+    // Use Cloudinary URL and force inline viewing
+    let pdfUrl = research.pdfUrl;
+    
+    // Add Cloudinary flag to prevent download and force inline viewing
+    if (pdfUrl.includes('cloudinary.com') && pdfUrl.includes('/upload/')) {
+      pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+    }
     
     console.log('Opening PDF:', pdfUrl);
     
