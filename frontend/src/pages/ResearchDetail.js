@@ -1,4 +1,4 @@
-// src/pages/ResearchDetail.js - FIXED PDF VIEWING
+// src/pages/ResearchDetail.js - DEBUG VERSION TO FIND THE ISSUE
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -11,7 +11,8 @@ import {
   FileText,
   Tag,
   Share2,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +26,7 @@ const ResearchDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showCitation, setShowCitation] = useState(false);
+  const [showDebug, setShowDebug] = useState(true); // Show debug panel
 
   useEffect(() => {
     fetchResearch();
@@ -33,6 +35,10 @@ const ResearchDetail = () => {
   const fetchResearch = async () => {
     try {
       const { data } = await api.get(`/research/${id}`);
+      console.log('🔍 FULL RESEARCH DATA:', data.research);
+      console.log('🔍 PDF URL:', data.research.pdfUrl);
+      console.log('🔍 PDF URL TYPE:', typeof data.research.pdfUrl);
+      console.log('🔍 PDF URL LENGTH:', data.research.pdfUrl?.length);
       setResearch(data.research);
       
       if (user?.bookmarks) {
@@ -64,80 +70,72 @@ const ResearchDetail = () => {
     }
   };
 
-  // ✅ FIXED: View PDF in new tab (inline viewing)
+  // TEST VERSION - Just open URL directly
   const handleViewPDF = () => {
+    console.log('🔴 VIEW PDF CLICKED');
+    console.log('🔴 Research object:', research);
+    console.log('🔴 PDF URL:', research?.pdfUrl);
+    
     if (!research || !research.pdfUrl) {
+      console.error('❌ No PDF URL found!');
       toast.error('PDF not available');
       return;
     }
 
-    // Open PDF in new tab with inline viewing
     const pdfUrl = research.pdfUrl;
+    console.log('🔴 Opening URL:', pdfUrl);
     
-    // For Cloudinary URLs, ensure inline viewing
-    if (pdfUrl.includes('cloudinary.com')) {
-      // Remove any existing fl_attachment parameter
-      let cleanUrl = pdfUrl.replace(/\/fl_attachment[^/]*\//, '/');
-      
-      // Add fl_attachment:false to force inline viewing
-      if (cleanUrl.includes('/upload/')) {
-        cleanUrl = cleanUrl.replace('/upload/', '/upload/fl_attachment:false/');
-      }
-      
-      window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+    // Open in new tab
+    const newWindow = window.open(pdfUrl, '_blank');
+    
+    if (newWindow) {
+      console.log('✅ Window opened successfully');
+      toast.success('Opening PDF...');
     } else {
-      // For non-Cloudinary URLs, open directly
-      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      console.error('❌ Failed to open window - popup blocked?');
+      toast.error('Popup blocked! Please allow popups for this site.');
     }
-    
-    toast.success('Opening PDF in new tab...');
   };
 
-  // ✅ FIXED: Download PDF (force download)
+  // TEST VERSION - Download with console logs
   const handleDownload = async () => {
-    try {
-      if (!research || !research.pdfUrl) {
-        toast.error('PDF not available');
-        return;
-      }
+    console.log('🔵 DOWNLOAD CLICKED');
+    console.log('🔵 PDF URL:', research?.pdfUrl);
+    
+    if (!research || !research.pdfUrl) {
+      console.error('❌ No PDF URL found!');
+      toast.error('PDF not available');
+      return;
+    }
 
+    try {
       // Track download
       await api.get(`/research/${id}/download`);
+      console.log('✅ Download tracked');
       
       const pdfUrl = research.pdfUrl;
+      const fileName = `${research.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
       
-      // For Cloudinary URLs, force download
-      if (pdfUrl.includes('cloudinary.com')) {
-        // Add fl_attachment parameter to force download
-        let downloadUrl = pdfUrl.replace(/\/fl_attachment[^/]*\//, '/');
-        
-        if (downloadUrl.includes('/upload/')) {
-          downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
-        }
-        
-        // Create temporary link and trigger download
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `${research.title}.pdf`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        // For non-Cloudinary URLs, use direct download
-        const link = document.createElement('a');
-        link.href = pdfUrl;
-        link.download = `${research.title}.pdf`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      console.log('🔵 Download URL:', pdfUrl);
+      console.log('🔵 File name:', fileName);
       
+      // Create download link
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      
+      console.log('🔵 Link created:', link);
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('✅ Download initiated');
       toast.success('Download started');
     } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download PDF');
+      console.error('❌ Download error:', error);
+      toast.error('Failed to download');
     }
   };
 
@@ -180,6 +178,39 @@ const ResearchDetail = () => {
           ← Back
         </button>
 
+        {/* 🔴 DEBUG PANEL - CHECK WHAT'S STORED */}
+        {showDebug && (
+          <div className="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-6">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+                <h3 className="text-xl font-bold text-red-900">🔴 DEBUG INFO</h3>
+              </div>
+              <button 
+                onClick={() => setShowDebug(false)}
+                className="text-red-600 hover:text-red-800"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-2 text-sm font-mono bg-white p-4 rounded">
+              <p><strong>PDF URL:</strong></p>
+              <p className="text-blue-600 break-all">{research.pdfUrl || 'NULL'}</p>
+              
+              <p className="mt-3"><strong>URL Type:</strong> {typeof research.pdfUrl}</p>
+              <p><strong>URL Length:</strong> {research.pdfUrl?.length || 0} characters</p>
+              
+              <p className="mt-3"><strong>Is Cloudinary:</strong> {research.pdfUrl?.includes('cloudinary') ? 'YES' : 'NO'}</p>
+              <p><strong>Is Valid URL:</strong> {research.pdfUrl?.startsWith('http') ? 'YES' : 'NO'}</p>
+              
+              <div className="mt-4 p-3 bg-yellow-100 rounded">
+                <p className="text-yellow-900 font-bold">🔍 Open Browser Console (F12) and click buttons to see logs!</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
           <div className="mb-6">
             <span className="inline-block px-4 py-2 bg-navy-100 text-navy-700 rounded-full text-sm font-medium mb-4">
@@ -220,7 +251,7 @@ const ResearchDetail = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-8 pb-8 border-b">
-            {/* VIEW PDF Button - Opens in new tab */}
+            {/* VIEW PDF Button */}
             <button
               onClick={handleViewPDF}
               className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium shadow-md"
@@ -229,7 +260,7 @@ const ResearchDetail = () => {
               <span>View PDF</span>
             </button>
 
-            {/* DOWNLOAD PDF Button - Forces download */}
+            {/* DOWNLOAD PDF Button */}
             <button
               onClick={handleDownload}
               className="flex items-center space-x-2 px-6 py-3 bg-navy-700 text-white rounded-lg hover:bg-navy-800 transition font-medium shadow-md"
