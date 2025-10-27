@@ -1,4 +1,4 @@
-// server.js - ADD THIS LINE
+// server.js - FIXED VERSION
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,7 +6,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-const fs = require('fs');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -16,7 +15,7 @@ const authRoutes = require('./routes/auth');
 const researchRoutes = require('./routes/research');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
-const teamRoutes = require('./routes/team'); // ADD THIS LINE
+const teamRoutes = require('./routes/team');
 
 // Initialize Express app
 const app = express();
@@ -24,11 +23,12 @@ const app = express();
 // Connect to Database
 connectDB();
 
-// CORS Configuration - FIXED
+// CORS Configuration
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
       process.env.FRONTEND_URL,
       'https://conserve-frontend.vercel.app',
+      'https://conserve-beige.vercel.app',
       'https://conserve-backend.vercel.app'
     ].filter(Boolean)
   : ['http://localhost:3000', 'http://localhost:3001'];
@@ -75,15 +75,8 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Create uploads directory
-//const uploadsDir = path.join(__dirname, 'uploads');
-//if (!fs.existsSync(uploadsDir)) {
-//  fs.mkdirSync(uploadsDir, { recursive: true });
- //console.log('📁 Created uploads directory');
-//}
-
-// Serve uploaded files
-//app.use('/uploads', express.static(uploadsDir));
+// ⚠️ REMOVED LOCAL FILE SERVING - Using Cloudinary instead
+// Files are stored in Cloudinary and accessed via their URLs
 
 // Request logger
 app.use((req, res, next) => {
@@ -96,7 +89,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/research', researchRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/team', teamRoutes); // ADD THIS LINE
+app.use('/api/team', teamRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -104,6 +97,7 @@ app.get('/', (req, res) => {
     message: 'ConServe API is running',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
+    storage: 'Cloudinary',
     endpoints: {
       health: '/api/health',
       auth: '/api/auth',
@@ -122,6 +116,7 @@ app.get('/api/health', (req, res) => {
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    storage: 'Cloudinary',
     env: {
       nodeEnv: process.env.NODE_ENV,
       hasMongoUri: !!process.env.MONGODB_URI,
@@ -164,7 +159,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Server running on port: ${PORT}`);
   console.log(`🌐 Local: http://localhost:${PORT}`);
   console.log(`💾 Database: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⏳ Connecting...'}`);
-  console.log(`📁 Uploads directory: ${uploadsDir}`);
+  console.log(`☁️  Storage: Cloudinary`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('='.repeat(50) + '\n');
 });
