@@ -74,24 +74,41 @@ const ResearchDetail = () => {
 
     let pdfUrl = research.pdfUrl;
     
+    console.log('Original PDF URL:', pdfUrl);
+    
     // For Cloudinary URLs, modify to force inline viewing
     if (pdfUrl.includes('cloudinary.com')) {
-      // Remove any existing fl_attachment flags
-      pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*/g, '');
+      // Remove any existing fl_attachment parameters
+      pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*\//g, '/');
       
-      // Add fl_attachment:false to force inline viewing instead of download
+      // Add inline flag to force browser viewing instead of download
       if (pdfUrl.includes('/upload/')) {
-        pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+        pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_inline/');
       }
+      
+      // Alternative: try as query parameter if above doesn't work
+      // pdfUrl = pdfUrl + '?inline=true';
     }
+    
+    console.log('Modified PDF URL:', pdfUrl);
     
     // Open in new tab with modified URL
     const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
     
     if (newWindow) {
+      newWindow.focus();
       toast.success('Opening PDF viewer...');
     } else {
       toast.error('Popup blocked! Please allow popups for this site.');
+      
+      // Fallback: try using a temporary link
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -110,7 +127,7 @@ const ResearchDetail = () => {
       
       // For Cloudinary, use fl_attachment to force download
       if (pdfUrl.includes('cloudinary.com')) {
-        pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*/g, '');
+        pdfUrl = pdfUrl.replace(/\/fl_[^\/]*\//g, '/');
         
         if (pdfUrl.includes('/upload/')) {
           pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment/');

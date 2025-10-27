@@ -82,20 +82,36 @@ const AdminDashboard = () => {
 const handleViewPDF = (research) => {
   let pdfUrl = research.pdfUrl;
   
-  // For Cloudinary URLs, modify to force inline viewing
+  // For Cloudinary URLs, ensure inline viewing
   if (pdfUrl.includes('cloudinary.com')) {
-    // Remove any existing fl_attachment flags
-    pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*/g, '');
+    // Remove any fl_attachment parameters
+    pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*\//g, '/');
     
-    // Add fl_attachment:false to force inline viewing
+    // Add inline flag
     if (pdfUrl.includes('/upload/')) {
-      pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+      pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_inline/');
     }
   }
   
-  console.log('Opening PDF:', pdfUrl);
-  window.open(pdfUrl, '_blank');
-  toast.success('Opening PDF in new tab...');
+  console.log('📄 Opening PDF:', pdfUrl);
+  
+  // Open in new tab
+  const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+  
+  if (newWindow) {
+    newWindow.focus();
+    toast.success('Opening PDF in new tab...');
+  } else {
+    toast.error('Popup blocked! Please allow popups for this site.');
+    
+    // Fallback
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };
 
 
