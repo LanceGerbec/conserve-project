@@ -79,13 +79,13 @@ const AdminDashboard = () => {
     setReviewNotes('Your research paper does not follow the required IMRaD format (Introduction, Methods, Results, and Discussion). Please restructure your paper according to IMRaD standards and resubmit. All sections must be clearly labeled and present. Refer to our submission guidelines for detailed information on the IMRaD format requirements.');
   };
 
-  const handleViewPDF = (research) => {
-    // ✅ FIX: Use Cloudinary URL directly
-    const pdfUrl = research.pdfUrl;
-    console.log('Opening PDF:', pdfUrl);
-    window.open(pdfUrl, '_blank');
-    toast.success('Opening PDF in new tab...');
-  };
+const handleViewPDF = (research) => {
+  // ✅ FIX: Use Cloudinary URL directly
+  const pdfUrl = research.pdfUrl;
+  console.log('Opening PDF:', pdfUrl);
+  window.open(pdfUrl, '_blank');
+  toast.success('Opening PDF in new tab...');
+};
 
   const toggleAbstract = (id) => {
     setShowFullAbstract(prev => ({
