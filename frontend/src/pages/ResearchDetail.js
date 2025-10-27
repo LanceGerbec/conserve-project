@@ -1,4 +1,4 @@
-// src/pages/ResearchDetail.js - DEBUG VERSION TO FIND THE ISSUE
+// src/pages/ResearchDetail.js - FIXED PDF VIEWING
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -12,7 +12,7 @@ import {
   Tag,
   Share2,
   ExternalLink,
-  AlertCircle
+  X
 } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +26,6 @@ const ResearchDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showCitation, setShowCitation] = useState(false);
-  const [showDebug, setShowDebug] = useState(true); // Show debug panel
 
   useEffect(() => {
     fetchResearch();
@@ -35,10 +34,6 @@ const ResearchDetail = () => {
   const fetchResearch = async () => {
     try {
       const { data } = await api.get(`/research/${id}`);
-      console.log('🔍 FULL RESEARCH DATA:', data.research);
-      console.log('🔍 PDF URL:', data.research.pdfUrl);
-      console.log('🔍 PDF URL TYPE:', typeof data.research.pdfUrl);
-      console.log('🔍 PDF URL LENGTH:', data.research.pdfUrl?.length);
       setResearch(data.research);
       
       if (user?.bookmarks) {
@@ -70,40 +65,39 @@ const ResearchDetail = () => {
     }
   };
 
-  // TEST VERSION - Just open URL directly
+  // ✅ FIXED: Force PDF to open in viewer, not download
   const handleViewPDF = () => {
-    console.log('🔴 VIEW PDF CLICKED');
-    console.log('🔴 Research object:', research);
-    console.log('🔴 PDF URL:', research?.pdfUrl);
-    
     if (!research || !research.pdfUrl) {
-      console.error('❌ No PDF URL found!');
       toast.error('PDF not available');
       return;
     }
 
-    const pdfUrl = research.pdfUrl;
-    console.log('🔴 Opening URL:', pdfUrl);
+    let pdfUrl = research.pdfUrl;
     
-    // Open in new tab
-    const newWindow = window.open(pdfUrl, '_blank');
+    // For Cloudinary URLs, modify to force inline viewing
+    if (pdfUrl.includes('cloudinary.com')) {
+      // Remove any existing fl_attachment flags
+      pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*/g, '');
+      
+      // Add fl_attachment:false to force inline viewing instead of download
+      if (pdfUrl.includes('/upload/')) {
+        pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+      }
+    }
+    
+    // Open in new tab with modified URL
+    const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
     
     if (newWindow) {
-      console.log('✅ Window opened successfully');
-      toast.success('Opening PDF...');
+      toast.success('Opening PDF viewer...');
     } else {
-      console.error('❌ Failed to open window - popup blocked?');
       toast.error('Popup blocked! Please allow popups for this site.');
     }
   };
 
-  // TEST VERSION - Download with console logs
+  // ✅ FIXED: Download with proper tracking
   const handleDownload = async () => {
-    console.log('🔵 DOWNLOAD CLICKED');
-    console.log('🔵 PDF URL:', research?.pdfUrl);
-    
     if (!research || !research.pdfUrl) {
-      console.error('❌ No PDF URL found!');
       toast.error('PDF not available');
       return;
     }
@@ -111,13 +105,19 @@ const ResearchDetail = () => {
     try {
       // Track download
       await api.get(`/research/${id}/download`);
-      console.log('✅ Download tracked');
       
-      const pdfUrl = research.pdfUrl;
+      let pdfUrl = research.pdfUrl;
+      
+      // For Cloudinary, use fl_attachment to force download
+      if (pdfUrl.includes('cloudinary.com')) {
+        pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*/g, '');
+        
+        if (pdfUrl.includes('/upload/')) {
+          pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment/');
+        }
+      }
+      
       const fileName = `${research.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
-      
-      console.log('🔵 Download URL:', pdfUrl);
-      console.log('🔵 File name:', fileName);
       
       // Create download link
       const link = document.createElement('a');
@@ -125,16 +125,13 @@ const ResearchDetail = () => {
       link.download = fileName;
       link.target = '_blank';
       
-      console.log('🔵 Link created:', link);
-      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      console.log('✅ Download initiated');
       toast.success('Download started');
     } catch (error) {
-      console.error('❌ Download error:', error);
+      console.error('Download error:', error);
       toast.error('Failed to download');
     }
   };
@@ -177,39 +174,6 @@ const ResearchDetail = () => {
         >
           ← Back
         </button>
-
-        {/* 🔴 DEBUG PANEL - CHECK WHAT'S STORED */}
-        {showDebug && (
-          <div className="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-                <h3 className="text-xl font-bold text-red-900">🔴 DEBUG INFO</h3>
-              </div>
-              <button 
-                onClick={() => setShowDebug(false)}
-                className="text-red-600 hover:text-red-800"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="space-y-2 text-sm font-mono bg-white p-4 rounded">
-              <p><strong>PDF URL:</strong></p>
-              <p className="text-blue-600 break-all">{research.pdfUrl || 'NULL'}</p>
-              
-              <p className="mt-3"><strong>URL Type:</strong> {typeof research.pdfUrl}</p>
-              <p><strong>URL Length:</strong> {research.pdfUrl?.length || 0} characters</p>
-              
-              <p className="mt-3"><strong>Is Cloudinary:</strong> {research.pdfUrl?.includes('cloudinary') ? 'YES' : 'NO'}</p>
-              <p><strong>Is Valid URL:</strong> {research.pdfUrl?.startsWith('http') ? 'YES' : 'NO'}</p>
-              
-              <div className="mt-4 p-3 bg-yellow-100 rounded">
-                <p className="text-yellow-900 font-bold">🔍 Open Browser Console (F12) and click buttons to see logs!</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
           <div className="mb-6">
@@ -254,7 +218,7 @@ const ResearchDetail = () => {
             {/* VIEW PDF Button */}
             <button
               onClick={handleViewPDF}
-              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium shadow-md"
+              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition font-medium shadow-md"
             >
               <ExternalLink size={20} />
               <span>View PDF</span>
@@ -374,7 +338,15 @@ const ResearchDetail = () => {
       {showCitation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-96 overflow-y-auto">
-            <h3 className="text-2xl font-bold mb-4">Cite This Research</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-bold">Cite This Research</h3>
+              <button
+                onClick={() => setShowCitation(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
             
             {['APA', 'MLA', 'Chicago'].map(format => (
               <div key={format} className="mb-4">
@@ -395,13 +367,6 @@ const ResearchDetail = () => {
                 </div>
               </div>
             ))}
-
-            <button
-              onClick={() => setShowCitation(false)}
-              className="w-full mt-4 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition font-medium"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

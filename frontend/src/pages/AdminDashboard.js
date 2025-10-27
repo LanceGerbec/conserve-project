@@ -79,22 +79,25 @@ const AdminDashboard = () => {
     setReviewNotes('Your research paper does not follow the required IMRaD format (Introduction, Methods, Results, and Discussion). Please restructure your paper according to IMRaD standards and resubmit. All sections must be clearly labeled and present. Refer to our submission guidelines for detailed information on the IMRaD format requirements.');
   };
 
-  const handleViewPDF = (research) => {
-    // ✅ FIX: Add fl_attachment=false to force viewing instead of downloading
-    let pdfUrl = research.pdfUrl;
+const handleViewPDF = (research) => {
+  let pdfUrl = research.pdfUrl;
+  
+  // For Cloudinary URLs, modify to force inline viewing
+  if (pdfUrl.includes('cloudinary.com')) {
+    // Remove any existing fl_attachment flags
+    pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*/g, '');
     
-    // If it's a Cloudinary URL, add the flag to prevent download
-    if (pdfUrl.includes('cloudinary.com')) {
-      // Add fl_attachment=false parameter to force inline viewing
-      if (pdfUrl.includes('/upload/')) {
-        pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
-      }
+    // Add fl_attachment:false to force inline viewing
+    if (pdfUrl.includes('/upload/')) {
+      pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
     }
-    
-    console.log('Opening PDF:', pdfUrl);
-    window.open(pdfUrl, '_blank');
-    toast.success('Opening PDF in new tab...');
-  };
+  }
+  
+  console.log('Opening PDF:', pdfUrl);
+  window.open(pdfUrl, '_blank');
+  toast.success('Opening PDF in new tab...');
+};
+
 
   const toggleAbstract = (id) => {
     setShowFullAbstract(prev => ({
