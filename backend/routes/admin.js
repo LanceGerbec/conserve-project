@@ -7,18 +7,18 @@ const User = require('../models/User');
 const { protect, adminOnly } = require('../middleware/auth');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/email');
 
-// ✅ HELPER FUNCTION: Modify Cloudinary URL for viewing
+// ✅ IMPROVED: Better Cloudinary URL modification for viewing
 function getViewableCloudinaryUrl(url) {
   if (!url || !url.includes('cloudinary.com')) {
     return url;
   }
   
-  // Remove any existing fl_attachment flags
-  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*/g, '');
+  // Remove any existing fl_attachment parameters
+  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*\//g, '/');
   
-  // Add fl_attachment:false to force inline viewing
+  // Add inline display flag
   if (modifiedUrl.includes('/upload/')) {
-    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_attachment:false/');
+    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_inline/');
   }
   
   return modifiedUrl;

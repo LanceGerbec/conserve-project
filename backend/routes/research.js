@@ -10,18 +10,23 @@ const upload = require('../middleware/cloudinaryUpload');
 const { fuzzySearch } = require('../utils/fuzzySearch');
 const mongoose = require('mongoose');
 
-// ✅ HELPER FUNCTION: Modify Cloudinary URL for viewing
+// ✅ IMPROVED: Better Cloudinary URL modification for viewing
 function getViewableCloudinaryUrl(url) {
   if (!url || !url.includes('cloudinary.com')) {
     return url;
   }
   
-  // Remove any existing fl_attachment flags
-  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*/g, '');
+  // Remove any existing fl_attachment parameters (including fl_attachment:false)
+  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*\//g, '/');
   
-  // Add fl_attachment:false to force inline viewing
-  if (modifiedUrl.includes('/upload/')) {
-    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_attachment:false/');
+  // For viewing in browser, we need to add fl_attachment=false as a query parameter
+  // or use inline transformation parameter
+  if (modifiedUrl.includes('cloudinary.com')) {
+    // Add inline display flag
+    if (modifiedUrl.includes('/upload/')) {
+      // Add flags parameter to force inline display
+      modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_inline/');
+    }
   }
   
   return modifiedUrl;
