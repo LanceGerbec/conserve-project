@@ -7,18 +7,21 @@ const User = require('../models/User');
 const { protect, adminOnly } = require('../middleware/auth');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/email');
 
-// ✅ IMPROVED: Better Cloudinary URL modification for viewing
 function getViewableCloudinaryUrl(url) {
   if (!url || !url.includes('cloudinary.com')) {
     return url;
   }
   
-  // Remove any existing fl_attachment parameters
-  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*\//g, '/');
+  let modifiedUrl = url;
+  modifiedUrl = modifiedUrl.replace(/fl_attachment[,/]/g, '');
   
-  // Add inline display flag
-  if (modifiedUrl.includes('/upload/')) {
-    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_inline/');
+  if (!modifiedUrl.includes('fl_inline')) {
+    if (modifiedUrl.includes('/upload/')) {
+      modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_inline/');
+    } else {
+      const separator = modifiedUrl.includes('?') ? '&' : '?';
+      modifiedUrl = `${modifiedUrl}${separator}fl=inline`;
+    }
   }
   
   return modifiedUrl;
@@ -39,7 +42,7 @@ router.get('/subjects', async (req, res) => {
 router.use(protect);
 router.use(adminOnly);
 
-// ⭐ UPDATED: Get all research (for management page)
+// ✅ UPDATE: Get all research
 router.get('/research/all', async (req, res) => {
   try {
     let researches = await Research.find({ isActive: true })
@@ -47,7 +50,7 @@ router.get('/research/all', async (req, res) => {
       .populate('submittedBy', 'firstName lastName email')
       .sort({ submittedAt: -1 });
 
-    // ✅ Convert URLs to viewable format
+    // ✅ Convert URLs
     researches = researches.map(r => {
       const obj = r.toObject();
       if (obj.pdfUrl) {
@@ -59,6 +62,30 @@ router.get('/research/all', async (req, res) => {
     res.json({ success: true, researches });
   } catch (error) {
     console.error('Get all research error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ✅ UPDATE: Get pending research
+router.get('/research/pending', async (req, res) => {
+  try {
+    let researches = await Research.find({ status: 'pending' })
+      .populate('subjectArea', 'name')
+      .populate('submittedBy', 'firstName lastName email')
+      .sort({ submittedAt: -1 });
+
+    // ✅ Convert URLs
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      return obj;
+    });
+
+    res.json({ success: true, researches });
+  } catch (error) {
+    console.error('Get pending research error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

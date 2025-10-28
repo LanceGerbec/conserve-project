@@ -1,4 +1,4 @@
-// routes/research.js - COMPLETE FINAL VERSION WITH ALL FIXES
+// routes/research.js - COMPLETE FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
@@ -12,58 +12,74 @@ const { fuzzySearch } = require('../utils/fuzzySearch');
 const mongoose = require('mongoose');
 
 // ====================================
-// HELPER FUNCTIONS
+// ✅ FIX: URL TRANSFORMATION FUNCTIONS
 // ====================================
 
 /**
- * Convert Cloudinary URL to viewable format (opens in browser, not downloads)
- * @param {string} url - Original Cloudinary URL
- * @returns {string} Modified URL for inline viewing
+ * Convert Cloudinary URL to viewable format (inline viewing)
  */
 function getViewableCloudinaryUrl(url) {
   if (!url || !url.includes('cloudinary.com')) {
     return url;
   }
   
-  // Remove any existing fl_attachment parameters
-  let modifiedUrl = url.replace(/\/fl_attachment[^\/]*\//g, '/');
+  let modifiedUrl = url;
   
-  // Add inline display flag to force browser viewing instead of download
-  if (modifiedUrl.includes('/upload/')) {
-    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_inline/');
+  // Remove fl_attachment if present
+  modifiedUrl = modifiedUrl.replace(/fl_attachment[,/]/g, '');
+  
+  // Ensure we have fl_inline for browser viewing
+  if (!modifiedUrl.includes('fl_inline')) {
+    if (modifiedUrl.includes('/upload/')) {
+      modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_inline/');
+    } else {
+      // Add as query parameter if path modification doesn't work
+      const separator = modifiedUrl.includes('?') ? '&' : '?';
+      modifiedUrl = `${modifiedUrl}${separator}fl=inline`;
+    }
   }
+  
+  console.log('🔄 URL Conversion:', {
+    original: url,
+    modified: modifiedUrl
+  });
   
   return modifiedUrl;
 }
 
 /**
  * Convert Cloudinary URL to download format
- * @param {string} url - Original Cloudinary URL
- * @returns {string} Modified URL for downloading
  */
 function getDownloadCloudinaryUrl(url) {
   if (!url || !url.includes('cloudinary.com')) {
     return url;
   }
   
-  // Remove any existing flags
-  let modifiedUrl = url.replace(/\/fl_[^\/]*\//g, '/');
+  let modifiedUrl = url;
   
-  // Add attachment flag to force download
-  if (modifiedUrl.includes('/upload/')) {
-    modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_attachment/');
+  // Remove fl_inline if present
+  modifiedUrl = modifiedUrl.replace(/fl_inline[,/]/g, '');
+  
+  // Add fl_attachment for forced download
+  if (!modifiedUrl.includes('fl_attachment')) {
+    if (modifiedUrl.includes('/upload/')) {
+      modifiedUrl = modifiedUrl.replace('/upload/', '/upload/fl_attachment/');
+    } else {
+      const separator = modifiedUrl.includes('?') ? '&' : '?';
+      modifiedUrl = `${modifiedUrl}${separator}fl=attachment`;
+    }
   }
   
   return modifiedUrl;
 }
 
 // ====================================
-// PUBLIC ROUTES (No authentication)
+// PUBLIC ROUTES
 // ====================================
 
 /**
  * @route   GET /api/research
- * @desc    Get all approved research with filters and pagination
+ * @desc    Get all approved research
  * @access  Public
  */
 router.get('/', async (req, res) => {
@@ -78,38 +94,25 @@ router.get('/', async (req, res) => {
       sort = 'recent' 
     } = req.query;
 
-    // Build query
     let query = { status: 'approved', isActive: true };
 
-    if (subjectArea) {
-      if (!mongoose.Types.ObjectId.isValid(subjectArea)) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Invalid subject area ID' 
-        });
-      }
+    if (subjectArea && mongoose.Types.ObjectId.isValid(subjectArea)) {
       query.subjectArea = subjectArea;
     }
 
     if (year) {
       const yearNum = parseInt(year);
-      if (isNaN(yearNum)) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Invalid year format' 
-        });
+      if (!isNaN(yearNum)) {
+        query.yearPublished = yearNum;
       }
-      query.yearPublished = yearNum;
     }
 
     if (author) {
       query['authors.name'] = { $regex: author, $options: 'i' };
     }
 
-    // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Sort options
     let sortOption = {};
     switch (sort) {
       case 'popular':
@@ -121,28 +124,23 @@ router.get('/', async (req, res) => {
       case 'mostCited':
         sortOption = { citationCount: -1 };
         break;
-      case 'alphabetical':
-        sortOption = { title: 1 };
-        break;
       default:
         sortOption = { approvedAt: -1 };
     }
 
-    // Fetch research
     let researches = await Research.find(query)
       .populate('subjectArea', 'name')
       .populate('submittedBy', 'firstName lastName')
       .sort(sortOption)
       .skip(skip)
       .limit(parseInt(limit))
-      .lean(); // Use lean() for better performance
+      .lean();
 
-    // Apply fuzzy search if search term provided
     if (search && search.trim()) {
       researches = fuzzySearch(search, researches);
     }
 
-    // Convert URLs to viewable format
+    // ✅ Convert URLs to viewable format
     researches = researches.map(r => {
       if (r.pdfUrl) {
         r.pdfUrl = getViewableCloudinaryUrl(r.pdfUrl);
@@ -153,7 +151,6 @@ router.get('/', async (req, res) => {
       return r;
     });
 
-    // Get total count for pagination
     const total = await Research.countDocuments(query);
 
     res.json({
@@ -172,7 +169,7 @@ router.get('/', async (req, res) => {
     console.error('Get research error:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error while fetching research',
+      message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -180,7 +177,7 @@ router.get('/', async (req, res) => {
 
 /**
  * @route   GET /api/research/popular
- * @desc    Get most popular research (by views and downloads)
+ * @desc    Get popular research
  * @access  Public
  */
 router.get('/popular', async (req, res) => {
@@ -197,7 +194,6 @@ router.get('/popular', async (req, res) => {
       .limit(limit)
       .lean();
 
-    // Convert URLs to viewable format
     researches = researches.map(r => {
       if (r.pdfUrl) {
         r.pdfUrl = getViewableCloudinaryUrl(r.pdfUrl);
@@ -210,17 +206,14 @@ router.get('/popular', async (req, res) => {
 
     res.json({ success: true, researches });
   } catch (error) {
-    console.error('Get popular research error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
+    console.error('Get popular error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /**
  * @route   GET /api/research/recent
- * @desc    Get most recent research
+ * @desc    Get recent research
  * @access  Public
  */
 router.get('/recent', async (req, res) => {
@@ -237,7 +230,6 @@ router.get('/recent', async (req, res) => {
       .limit(limit)
       .lean();
 
-    // Convert URLs to viewable format
     researches = researches.map(r => {
       if (r.pdfUrl) {
         r.pdfUrl = getViewableCloudinaryUrl(r.pdfUrl);
@@ -250,26 +242,22 @@ router.get('/recent', async (req, res) => {
 
     res.json({ success: true, researches });
   } catch (error) {
-    console.error('Get recent research error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
+    console.error('Get recent error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /**
  * @route   GET /api/research/:id
- * @desc    Get single research by ID
+ * @desc    Get single research
  * @access  Public
  */
 router.get('/:id', async (req, res) => {
   try {
-    // Validate MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ 
         success: false,
-        message: 'Invalid research ID format' 
+        message: 'Invalid research ID' 
       });
     }
 
@@ -286,21 +274,20 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Only show approved research to non-authenticated users
     if (research.status !== 'approved' && research.isActive === false) {
       return res.status(403).json({ 
         success: false,
-        message: 'This research is not publicly available' 
+        message: 'Research not available' 
       });
     }
 
-    // Increment view count (do this asynchronously, don't wait)
+    // Increment view count
     Research.findByIdAndUpdate(
       req.params.id,
       { $inc: { viewCount: 1 } }
     ).exec();
 
-    // Log analytics (asynchronously)
+    // Log analytics
     Analytics.create({
       type: 'research_view',
       research: research._id,
@@ -309,23 +296,23 @@ router.get('/:id', async (req, res) => {
       userAgent: req.get('user-agent')
     }).catch(err => console.error('Analytics error:', err));
 
-    // Convert URLs to viewable format
+    // ✅ Convert URLs
     if (research.pdfUrl) {
       research.pdfUrl = getViewableCloudinaryUrl(research.pdfUrl);
+      console.log('✅ PDF URL for viewing:', research.pdfUrl);
     }
     if (research.coverImage) {
       research.coverImage = getViewableCloudinaryUrl(research.coverImage);
     }
 
-    // Increment view count in response
     research.viewCount = (research.viewCount || 0) + 1;
 
     res.json({ success: true, research });
   } catch (error) {
-    console.error('Get research by ID error:', error);
+    console.error('Get research error:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error while fetching research',
+      message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -333,7 +320,7 @@ router.get('/:id', async (req, res) => {
 
 /**
  * @route   GET /api/research/:id/download
- * @desc    Track download and return download URL
+ * @desc    Track and download
  * @access  Public
  */
 router.get('/:id/download', async (req, res) => {
@@ -341,7 +328,7 @@ router.get('/:id/download', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ 
         success: false,
-        message: 'Invalid research ID' 
+        message: 'Invalid ID' 
       });
     }
 
@@ -350,24 +337,24 @@ router.get('/:id/download', async (req, res) => {
     if (!research) {
       return res.status(404).json({ 
         success: false,
-        message: 'Research not found' 
+        message: 'Not found' 
       });
     }
 
     if (research.status !== 'approved' || !research.isActive) {
       return res.status(403).json({ 
         success: false,
-        message: 'This research is not available for download' 
+        message: 'Not available' 
       });
     }
 
-    // Increment download count (asynchronously)
+    // Increment download count
     Research.findByIdAndUpdate(
       req.params.id,
       { $inc: { downloadCount: 1 } }
     ).exec();
 
-    // Log analytics (asynchronously)
+    // Log analytics
     Analytics.create({
       type: 'download',
       research: research._id,
@@ -376,7 +363,7 @@ router.get('/:id/download', async (req, res) => {
       userAgent: req.get('user-agent')
     }).catch(err => console.error('Analytics error:', err));
 
-    // Return download URL with attachment flag
+    // ✅ Return download URL
     const downloadUrl = getDownloadCloudinaryUrl(research.pdfUrl);
 
     res.json({ 
@@ -385,23 +372,23 @@ router.get('/:id/download', async (req, res) => {
       filename: `${research.title.replace(/[^a-z0-9]/gi, '_')}.pdf`
     });
   } catch (error) {
-    console.error('Download tracking error:', error);
+    console.error('Download error:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error while tracking download',
+      message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
 // ====================================
-// PROTECTED ROUTES (Requires login)
+// PROTECTED ROUTES
 // ====================================
 
 /**
  * @route   POST /api/research/submit
- * @desc    Submit new research for review
- * @access  Private (authenticated users only)
+ * @desc    Submit research
+ * @access  Private
  */
 router.post('/submit', 
   protect,
@@ -411,125 +398,74 @@ router.post('/submit',
   ]),
   async (req, res) => {
     try {
-      // Validation
       const errors = [];
 
-      // Title validation
-      if (!req.body.title || !req.body.title.trim()) {
-        errors.push({ field: 'title', message: 'Title is required' });
-      } else if (req.body.title.trim().length < 10) {
-        errors.push({ field: 'title', message: 'Title must be at least 10 characters' });
+      if (!req.body.title || req.body.title.trim().length < 10) {
+        errors.push({ field: 'title', message: 'Title required (min 10 chars)' });
       }
 
-      // Abstract validation
-      if (!req.body.abstract || !req.body.abstract.trim()) {
-        errors.push({ field: 'abstract', message: 'Abstract is required' });
-      } else if (req.body.abstract.trim().length < 50) {
-        errors.push({ field: 'abstract', message: 'Abstract must be at least 50 characters' });
+      if (!req.body.abstract || req.body.abstract.trim().length < 50) {
+        errors.push({ field: 'abstract', message: 'Abstract required (min 50 chars)' });
       }
 
-      // Subject area validation
-      if (!req.body.subjectArea || !req.body.subjectArea.trim()) {
-        errors.push({ field: 'subjectArea', message: 'Subject area is required' });
-      } else if (!mongoose.Types.ObjectId.isValid(req.body.subjectArea)) {
-        errors.push({ field: 'subjectArea', message: 'Invalid subject area ID' });
-      } else {
-        // Check if subject area exists
-        const subjectExists = await SubjectArea.findById(req.body.subjectArea);
-        if (!subjectExists) {
-          errors.push({ field: 'subjectArea', message: 'Subject area not found' });
-        }
+      if (!req.body.subjectArea || !mongoose.Types.ObjectId.isValid(req.body.subjectArea)) {
+        errors.push({ field: 'subjectArea', message: 'Valid subject area required' });
       }
 
-      // Year validation
-      if (!req.body.yearPublished) {
-        errors.push({ field: 'yearPublished', message: 'Year published is required' });
-      } else {
-        const year = parseInt(req.body.yearPublished);
-        const currentYear = new Date().getFullYear();
-        if (isNaN(year) || year < 1900 || year > currentYear + 1) {
-          errors.push({ field: 'yearPublished', message: `Invalid year (must be between 1900 and ${currentYear + 1})` });
-        }
+      const year = parseInt(req.body.yearPublished);
+      const currentYear = new Date().getFullYear();
+      if (isNaN(year) || year < 1900 || year > currentYear + 1) {
+        errors.push({ field: 'yearPublished', message: `Year must be 1900-${currentYear + 1}` });
       }
 
-      // Authors validation
-      let authors;
+      let authors, keywords;
       try {
-        authors = typeof req.body.authors === 'string' 
-          ? JSON.parse(req.body.authors) 
-          : req.body.authors;
+        authors = typeof req.body.authors === 'string' ? JSON.parse(req.body.authors) : req.body.authors;
+        keywords = typeof req.body.keywords === 'string' ? JSON.parse(req.body.keywords) : req.body.keywords;
         
-        if (!Array.isArray(authors) || authors.length === 0) {
-          errors.push({ field: 'authors', message: 'At least one author is required' });
-        } else {
-          const validAuthors = authors.filter(a => a.name && a.name.trim());
-          if (validAuthors.length === 0) {
-            errors.push({ field: 'authors', message: 'At least one author with a name is required' });
-          }
+        if (!Array.isArray(authors) || authors.filter(a => a.name?.trim()).length === 0) {
+          errors.push({ field: 'authors', message: 'At least one author required' });
+        }
+        
+        if (!Array.isArray(keywords) || keywords.filter(k => k?.trim()).length === 0) {
+          errors.push({ field: 'keywords', message: 'At least one keyword required' });
         }
       } catch (e) {
-        errors.push({ field: 'authors', message: 'Invalid authors format (must be valid JSON array)' });
+        errors.push({ field: 'data', message: 'Invalid JSON format' });
       }
 
-      // Keywords validation
-      let keywords;
-      try {
-        keywords = typeof req.body.keywords === 'string' 
-          ? JSON.parse(req.body.keywords) 
-          : req.body.keywords;
-        
-        if (!Array.isArray(keywords) || keywords.length === 0) {
-          errors.push({ field: 'keywords', message: 'At least one keyword is required' });
-        } else {
-          const validKeywords = keywords.filter(k => k && k.trim());
-          if (validKeywords.length === 0) {
-            errors.push({ field: 'keywords', message: 'At least one valid keyword is required' });
-          }
-        }
-      } catch (e) {
-        errors.push({ field: 'keywords', message: 'Invalid keywords format (must be valid JSON array)' });
-      }
-
-      // PDF file validation
-      if (!req.files || !req.files.pdf || !req.files.pdf[0]) {
-        errors.push({ field: 'pdf', message: 'PDF file is required' });
+      if (!req.files?.pdf?.[0]) {
+        errors.push({ field: 'pdf', message: 'PDF file required' });
       } else {
         const pdfFile = req.files.pdf[0];
         if (pdfFile.mimetype !== 'application/pdf') {
-          errors.push({ field: 'pdf', message: 'File must be a PDF' });
+          errors.push({ field: 'pdf', message: 'Must be PDF' });
         }
         if (pdfFile.size > 10 * 1024 * 1024) {
-          errors.push({ field: 'pdf', message: 'PDF file must be less than 10MB' });
+          errors.push({ field: 'pdf', message: 'Max 10MB' });
         }
       }
 
-      // If validation errors, return them
       if (errors.length > 0) {
         return res.status(400).json({ 
           success: false,
           message: 'Validation failed',
-          errors: errors 
+          errors 
         });
       }
 
-      // Clean data
-      const { title, abstract, subjectArea, yearPublished } = req.body;
-      const cleanAuthors = authors.filter(a => a.name && a.name.trim());
-      const cleanKeywords = keywords.filter(k => k && k.trim());
-
-      // Create research
       const research = await Research.create({
-        title: title.trim(),
-        abstract: abstract.trim(),
-        authors: cleanAuthors.map(a => ({
+        title: req.body.title.trim(),
+        abstract: req.body.abstract.trim(),
+        authors: authors.filter(a => a.name?.trim()).map(a => ({
           name: a.name.trim(),
-          email: a.email ? a.email.trim() : undefined
+          email: a.email?.trim()
         })),
-        keywords: cleanKeywords.map(k => k.trim()),
-        subjectArea: subjectArea,
-        yearPublished: parseInt(yearPublished),
-        pdfUrl: req.files.pdf[0].path, // Cloudinary URL
-        coverImage: req.files.coverImage ? req.files.coverImage[0].path : null,
+        keywords: keywords.filter(k => k?.trim()).map(k => k.trim()),
+        subjectArea: req.body.subjectArea,
+        yearPublished: year,
+        pdfUrl: req.files.pdf[0].path,
+        coverImage: req.files.coverImage?.[0]?.path || null,
         submittedBy: req.user.id,
         status: 'pending',
         submittedAt: new Date()
@@ -543,7 +479,7 @@ router.post('/submit',
 
       res.status(201).json({
         success: true,
-        message: 'Research submitted successfully and is pending approval',
+        message: 'Submitted successfully',
         research: {
           _id: research._id,
           title: research.title,
@@ -554,9 +490,8 @@ router.post('/submit',
       });
 
     } catch (error) {
-      console.error('Submit research error:', error);
+      console.error('Submit error:', error);
       
-      // Handle Mongoose validation errors
       if (error.name === 'ValidationError') {
         const validationErrors = Object.keys(error.errors).map(key => ({
           field: key,
@@ -569,18 +504,17 @@ router.post('/submit',
         });
       }
 
-      // Handle duplicate key errors
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: 'A research with this title already exists',
-          errors: [{ field: 'title', message: 'Title must be unique' }]
+          message: 'Title must be unique',
+          errors: [{ field: 'title', message: 'Already exists' }]
         });
       }
 
       res.status(500).json({ 
         success: false,
-        message: 'Server error while submitting research',
+        message: 'Server error',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
@@ -589,72 +523,43 @@ router.post('/submit',
 
 /**
  * @route   POST /api/research/:id/bookmark
- * @desc    Bookmark or unbookmark research
+ * @desc    Bookmark toggle
  * @access  Private
  */
 router.post('/:id/bookmark', protect, async (req, res) => {
   try {
-    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid research ID' 
-      });
+      return res.status(400).json({ success: false, message: 'Invalid ID' });
     }
 
-    // Check if research exists
     const research = await Research.findById(req.params.id);
     if (!research) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Research not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    // Get user
     const user = await User.findById(req.user.id);
     const bookmarkIndex = user.bookmarks.indexOf(research._id);
 
     if (bookmarkIndex > -1) {
-      // Remove bookmark
       user.bookmarks.splice(bookmarkIndex, 1);
       research.bookmarkCount = Math.max(0, research.bookmarkCount - 1);
-      
       await Promise.all([user.save(), research.save()]);
-
-      res.json({ 
-        success: true, 
-        message: 'Bookmark removed',
-        bookmarked: false,
-        bookmarkCount: research.bookmarkCount
-      });
+      res.json({ success: true, message: 'Removed', bookmarked: false, bookmarkCount: research.bookmarkCount });
     } else {
-      // Add bookmark
       user.bookmarks.push(research._id);
       research.bookmarkCount += 1;
-      
       await Promise.all([user.save(), research.save()]);
-
-      res.json({ 
-        success: true, 
-        message: 'Research bookmarked',
-        bookmarked: true,
-        bookmarkCount: research.bookmarkCount
-      });
+      res.json({ success: true, message: 'Bookmarked', bookmarked: true, bookmarkCount: research.bookmarkCount });
     }
   } catch (error) {
     console.error('Bookmark error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error while updating bookmark',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /**
  * @route   GET /api/research/user/bookmarks
- * @desc    Get user's bookmarked research
+ * @desc    Get bookmarks
  * @access  Private
  */
 router.get('/user/bookmarks', protect, async (req, res) => {
@@ -668,42 +573,26 @@ router.get('/user/bookmarks', protect, async (req, res) => {
       });
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'User not found' 
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Convert URLs to viewable format
     const bookmarks = user.bookmarks.map(b => {
       const obj = b.toObject();
-      if (obj.pdfUrl) {
-        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
-      }
-      if (obj.coverImage) {
-        obj.coverImage = getViewableCloudinaryUrl(obj.coverImage);
-      }
+      if (obj.pdfUrl) obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      if (obj.coverImage) obj.coverImage = getViewableCloudinaryUrl(obj.coverImage);
       return obj;
     });
 
-    res.json({ 
-      success: true, 
-      bookmarks,
-      count: bookmarks.length
-    });
+    res.json({ success: true, bookmarks, count: bookmarks.length });
   } catch (error) {
     console.error('Get bookmarks error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error while fetching bookmarks',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /**
  * @route   GET /api/research/user/submissions
- * @desc    Get user's submitted research
+ * @desc    Get user submissions
  * @access  Private
  */
 router.get('/user/submissions', protect, async (req, res) => {
@@ -716,29 +605,16 @@ router.get('/user/submissions', protect, async (req, res) => {
       .sort({ submittedAt: -1 })
       .lean();
 
-    // Convert URLs
     const submissions = researches.map(r => {
-      if (r.pdfUrl) {
-        r.pdfUrl = getViewableCloudinaryUrl(r.pdfUrl);
-      }
-      if (r.coverImage) {
-        r.coverImage = getViewableCloudinaryUrl(r.coverImage);
-      }
+      if (r.pdfUrl) r.pdfUrl = getViewableCloudinaryUrl(r.pdfUrl);
+      if (r.coverImage) r.coverImage = getViewableCloudinaryUrl(r.coverImage);
       return r;
     });
 
-    res.json({ 
-      success: true, 
-      submissions,
-      count: submissions.length
-    });
+    res.json({ success: true, submissions, count: submissions.length });
   } catch (error) {
     console.error('Get submissions error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error while fetching submissions',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
