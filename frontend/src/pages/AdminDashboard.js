@@ -80,29 +80,23 @@ const AdminDashboard = () => {
   };
 
 const handleViewPDF = (research) => {
-  let pdfUrl = research.pdfUrl;
-  
-  // For Cloudinary URLs, ensure inline viewing
-  if (pdfUrl.includes('cloudinary.com')) {
-    // Remove any fl_attachment parameters
-    pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*\//g, '/');
-    
-    // Add inline flag
-    if (pdfUrl.includes('/upload/')) {
-      pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_inline/');
-    }
+  if (!research || !research.pdfUrl) {
+    toast.error('PDF not available');
+    return;
   }
+
+  let pdfUrl = research.pdfUrl;
   
   console.log('📄 Opening PDF:', pdfUrl);
   
-  // Open in new tab
+  // Open PDF in new tab (URL already has fl_inline from backend)
   const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
   
   if (newWindow) {
     newWindow.focus();
-    toast.success('Opening PDF in new tab...');
+    toast.success('Opening PDF...');
   } else {
-    toast.error('Popup blocked! Please allow popups for this site.');
+    toast.error('Popup blocked! Please allow popups.');
     
     // Fallback
     const link = document.createElement('a');

@@ -64,53 +64,30 @@ const ResearchDetail = () => {
       toast.error('Failed to update bookmark');
     }
   };
+const handleViewPDF = () => {
+  if (!research || !research.pdfUrl) {
+    toast.error('PDF not available');
+    return;
+  }
 
-  // ✅ FIXED: Force PDF to open in viewer, not download
-  const handleViewPDF = () => {
-    if (!research || !research.pdfUrl) {
-      toast.error('PDF not available');
-      return;
-    }
-
-    let pdfUrl = research.pdfUrl;
-    
-    console.log('Original PDF URL:', pdfUrl);
-    
-    // For Cloudinary URLs, modify to force inline viewing
-    if (pdfUrl.includes('cloudinary.com')) {
-      // Remove any existing fl_attachment parameters
-      pdfUrl = pdfUrl.replace(/\/fl_attachment[^\/]*\//g, '/');
-      
-      // Add inline flag to force browser viewing instead of download
-      if (pdfUrl.includes('/upload/')) {
-        pdfUrl = pdfUrl.replace('/upload/', '/upload/fl_inline/');
-      }
-      
-      // Alternative: try as query parameter if above doesn't work
-      // pdfUrl = pdfUrl + '?inline=true';
-    }
-    
-    console.log('Modified PDF URL:', pdfUrl);
-    
-    // Open in new tab with modified URL
-    const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-    
-    if (newWindow) {
-      newWindow.focus();
-      toast.success('Opening PDF viewer...');
-    } else {
-      toast.error('Popup blocked! Please allow popups for this site.');
-      
-      // Fallback: try using a temporary link
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
+  console.log('📄 Viewing PDF:', research.pdfUrl);
+  
+  // URL already has fl_inline from backend
+  const newWindow = window.open(research.pdfUrl, '_blank', 'noopener,noreferrer');
+  
+  if (newWindow) {
+    newWindow.focus();
+    toast.success('Opening PDF viewer...');
+  } else {
+    toast.error('Popup blocked!');
+    const link = document.createElement('a');
+    link.href = research.pdfUrl;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
 
   // ✅ FIXED: Download with proper tracking
   const handleDownload = async () => {
