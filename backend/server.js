@@ -15,6 +15,10 @@ const researchRoutes = require('./routes/research');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 const teamRoutes = require('./routes/team');
+const verificationRoutes = require('./routes/verification');
+const documentLogsRoutes = require('./routes/documentLogs');
+const sessionTracking = require('./middleware/sessionTracking');
+const { scheduleLogPurge } = require('./utils/scheduledTasks');
 
 // Initialize Express app
 const app = express();
@@ -68,6 +72,8 @@ app.use(helmet({
 // Body parsing
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Session tracking for document access logging
+app.use(sessionTracking);
 
 // Logging
 if (process.env.NODE_ENV === 'development') {
@@ -100,6 +106,8 @@ app.use('/api/research', researchRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/team', teamRoutes);
+app.use('/api/verification', verificationRoutes);
+app.use('/api/document-logs', documentLogsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -172,6 +180,12 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('='.repeat(50) + '\n');
 });
+
+// ==========================================
+// START SCHEDULED TASKS
+// ==========================================
+scheduleLogPurge(); // Auto-purge old logs weekly
+console.log('✅ Scheduled tasks initialized');
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

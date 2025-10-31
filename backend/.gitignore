@@ -106,3 +106,8 @@ Thumbs.db
 .vscode/
 *.sublime-project
 *.sublime-workspace
+.vercel
+
+# Temporary CSV uploads
+uploads/temp/*
+!uploads/temp/.gitkeep

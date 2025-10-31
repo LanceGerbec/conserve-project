@@ -357,4 +357,297 @@ router.put('/users/:id/toggle-status', async (req, res) => {
   }
 });
 
+// ==========================================
+// AUTHORIZED NUMBERS MANAGEMENT
+// ==========================================
+
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const AuthorizedNumber = require('../models/AuthorizedNumber');
+
+const uploadCSV = multer({ dest: 'uploads/temp/' });
+
+// @route   POST /api/admin/authorized-numbers/bulk-upload
+// @desc    Bulk upload authorized student numbers via CSV
+// @access  Admin only
+router.post('/authorized-numbers/bulk-upload', 
+  protect, 
+  adminOnly, 
+  uploadCSV.single('file'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'No file uploaded' 
+        });
+      }
+
+      const results = [];
+      const errors = [];
+
+      // Read CSV file
+      fs.createReadStream(req.file.path)
+        .pipe(csv())
+        .on('data', (row) => {
+          // Expected CSV format: studentNumber, type, firstName, lastName, program, yearLevel
+          if (row.studentNumber && row.studentNumber.trim()) {
+            results.push({
+              studentNumber: row.studentNumber.trim().toUpperCase(),
+              type: row.type || 'student',
+              firstName: row.firstName || '',
+              lastName: row.lastName || '',
+              program: row.program || '',
+              yearLevel: row.yearLevel || '',
+              addedBy: req.user.id
+            });
+          }
+        })
+        .on('end', async () => {
+          try {
+            // Bulk insert with error handling
+            const inserted = [];
+            for (const record of results) {
+              try {
+                const existing = await AuthorizedNumber.findOne({ 
+                  studentNumber: record.studentNumber 
+                });
+
+                if (!existing) {
+                  const created = await AuthorizedNumber.create(record);
+                  inserted.push(created);
+                } else {
+                  errors.push({
+                    studentNumber: record.studentNumber,
+                    reason: 'Already exists'
+                  });
+                }
+              } catch (err) {
+                errors.push({
+                  studentNumber: record.studentNumber,
+                  reason: err.message
+                });
+              }
+            }
+
+            // Clean up temp file
+            fs.unlinkSync(req.file.path);
+
+            res.json({
+              success: true,
+              message: `Uploaded ${inserted.length} authorized numbers`,
+              data: {
+                inserted: inserted.length,
+                errors: errors.length,
+                errorDetails: errors
+              }
+            });
+          } catch (error) {
+            console.error('Bulk insert error:', error);
+            fs.unlinkSync(req.file.path);
+            res.status(500).json({ 
+              success: false,
+              message: 'Error inserting records' 
+            });
+          }
+        })
+        .on('error', (error) => {
+          console.error('CSV parsing error:', error);
+          fs.unlinkSync(req.file.path);
+          res.status(500).json({ 
+            success: false,
+            message: 'Error parsing CSV file' 
+          });
+        });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Server error during upload' 
+      });
+    }
+  }
+);
+
+// @route   GET /api/admin/authorized-numbers
+// @desc    Get all authorized numbers
+// @access  Admin only
+router.get('/authorized-numbers', protect, adminOnly, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search, status } = req.query;
+
+    let query = {};
+
+    if (search) {
+      query.$or = [
+        { studentNumber: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (status === 'used') {
+      query.isUsed = true;
+    } else if (status === 'unused') {
+      query.isUsed = false;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [numbers, total] = await Promise.all([
+      AuthorizedNumber.find(query)
+        .populate('usedBy', 'firstName lastName email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      AuthorizedNumber.countDocuments(query)
+    ]);
+
+    res.json({
+      success: true,
+      numbers,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalItems: total,
+        itemsPerPage: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get authorized numbers error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
+
+// @route   POST /api/admin/authorized-numbers
+// @desc    Add single authorized number
+// @access  Admin only
+router.post('/authorized-numbers', protect, adminOnly, async (req, res) => {
+  try {
+    const { studentNumber, type, firstName, lastName, program, yearLevel } = req.body;
+
+    if (!studentNumber || !studentNumber.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Student number is required' 
+      });
+    }
+
+    const normalized = studentNumber.trim().toUpperCase();
+
+    const existing = await AuthorizedNumber.findOne({ 
+      studentNumber: normalized 
+    });
+
+    if (existing) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'This student number already exists' 
+      });
+    }
+
+    const authorized = await AuthorizedNumber.create({
+      studentNumber: normalized,
+      type: type || 'student',
+      firstName,
+      lastName,
+      program,
+      yearLevel,
+      addedBy: req.user.id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Authorized number added successfully',
+      number: authorized
+    });
+  } catch (error) {
+    console.error('Add authorized number error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
+
+// @route   DELETE /api/admin/authorized-numbers/:id
+// @desc    Delete authorized number
+// @access  Admin only
+router.delete('/authorized-numbers/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const authorized = await AuthorizedNumber.findById(req.params.id);
+
+    if (!authorized) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Authorized number not found' 
+      });
+    }
+
+    if (authorized.isUsed) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Cannot delete a number that has been used' 
+      });
+    }
+
+    await authorized.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Authorized number deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete authorized number error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
+
+// @route   GET /api/admin/authorized-numbers/stats
+// @desc    Get statistics
+// @access  Admin only
+router.get('/authorized-numbers/stats', protect, adminOnly, async (req, res) => {
+  try {
+    const [total, used, unused, byType] = await Promise.all([
+      AuthorizedNumber.countDocuments(),
+      AuthorizedNumber.countDocuments({ isUsed: true }),
+      AuthorizedNumber.countDocuments({ isUsed: false }),
+      AuthorizedNumber.aggregate([
+        {
+          $group: {
+            _id: '$type',
+            count: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        total,
+        used,
+        unused,
+        byType: byType.reduce((acc, item) => {
+          acc[item._id] = item.count;
+          return acc;
+        }, {})
+      }
+    });
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
+  }
+});
+
 module.exports = router;
