@@ -1,11 +1,28 @@
-// src/pages/AdminDashboard.js - FIXED FOR CLOUDINARY PDF VIEWING
+// src/pages/AdminDashboard.js - FIXED PDF VIEWING
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
-import { Clock, Check, X, BookOpen, Users, FileText, Settings, TrendingUp, BarChart3, Sparkles, ExternalLink, Eye, AlertCircle, CheckCircle } from 'lucide-react';
+import { 
+  Clock, 
+  Check, 
+  XIcon, 
+  BookOpen, 
+  Users, 
+  FileText, 
+  Settings, 
+  TrendingUp, 
+  BarChart3, 
+  Sparkles, 
+  ExternalLink, 
+  Eye, 
+  AlertCircle, 
+  CheckCircle,
+  Edit2, 
+  Plus, 
+  Trash2
+} from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Edit2, Plus, Trash2, X, Upload, Search, BookOpen, Lock, Heart, Stethoscope, Shield, Users, Award, Globe } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { isAdmin } = useAuth();
@@ -80,35 +97,32 @@ const AdminDashboard = () => {
     setReviewNotes('Your research paper does not follow the required IMRaD format (Introduction, Methods, Results, and Discussion). Please restructure your paper according to IMRaD standards and resubmit. All sections must be clearly labeled and present. Refer to our submission guidelines for detailed information on the IMRaD format requirements.');
   };
 
-const handleViewPDF = (research) => {
-  if (!research || !research.pdfUrl) {
-    toast.error('PDF not available');
-    return;
-  }
+  const handleViewPDF = (research) => {
+    if (!research || !research.pdfUrl) {
+      toast.error('PDF not available');
+      return;
+    }
 
-  let pdfUrl = research.pdfUrl;
-  
-  console.log('📄 Opening PDF:', pdfUrl);
-  
-  // Open PDF in new tab (URL already has fl_inline from backend)
-  const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-  
-  if (newWindow) {
-    newWindow.focus();
-    toast.success('Opening PDF...');
-  } else {
-    toast.error('Popup blocked! Please allow popups.');
+    let pdfUrl = research.pdfUrl;
     
-    // Fallback
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-};
-
+    console.log('📄 Opening PDF:', pdfUrl);
+    
+    const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+    
+    if (newWindow) {
+      newWindow.focus();
+      toast.success('Opening PDF...');
+    } else {
+      toast.error('Popup blocked! Please allow popups.');
+      
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   const toggleAbstract = (id) => {
     setShowFullAbstract(prev => ({
@@ -143,7 +157,7 @@ const handleViewPDF = (research) => {
         </div>
 
         {/* Enhanced Quick Action Cards */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Link to="/admin/subjects" className="group relative overflow-hidden bg-gradient-to-br from-navy-600 via-navy-700 to-navy-900 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
             <div className="relative z-10">
@@ -215,25 +229,25 @@ const handleViewPDF = (research) => {
               </div>
             </div>
           </Link>
-        </div>
 
-        <Link to="/admin/authorized-numbers" className="group relative overflow-hidden bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-  <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
-  <div className="relative z-10">
-    <div className="flex items-start justify-between mb-4">
-      <div className="p-3 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm">
-        <Shield className="w-6 h-6 text-white" />
-      </div>
-      <span className="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs text-white font-medium backdrop-blur-sm">Access</span>
-    </div>
-    <h3 className="text-xl font-bold text-white mb-1">Authorized Numbers</h3>
-    <p className="text-sm text-green-100 mb-4">Control registrations</p>
-    <div className="flex items-center text-white text-sm font-medium">
-      <span className="group-hover:mr-2 transition-all">View all</span>
-      <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-    </div>
-  </div>
-</Link>
+          <Link to="/admin/authorized-numbers" className="group relative overflow-hidden bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <span className="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs text-white font-medium backdrop-blur-sm">Access</span>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-1">Authorized Numbers</h3>
+              <p className="text-sm text-green-100 mb-4">Control registrations</p>
+              <div className="flex items-center text-white text-sm font-medium">
+                <span className="group-hover:mr-2 transition-all">View all</span>
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+              </div>
+            </div>
+          </Link>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -378,7 +392,7 @@ const handleViewPDF = (research) => {
                       <span>Reject (No IMRaD)</span>
                     </button>
                     <button onClick={() => setSelectedResearch(research)} className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium">
-                      <X size={18} />
+                      <XIcon size={18} />
                       <span>Reject (Other)</span>
                     </button>
                   </div>
@@ -396,7 +410,7 @@ const handleViewPDF = (research) => {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-3xl font-bold text-gray-900">Research Details</h3>
               <button onClick={() => setViewingResearch(null)} className="p-2 hover:bg-gray-100 rounded-lg transition">
-                <X className="w-6 h-6 text-gray-500" />
+                <XIcon className="w-6 h-6 text-gray-500" />
               </button>
             </div>
 
@@ -468,7 +482,7 @@ const handleViewPDF = (research) => {
                   <span>Reject (No IMRaD)</span>
                 </button>
                 <button onClick={() => { setViewingResearch(null); setSelectedResearch(viewingResearch); }} className="flex-1 min-w-[180px] flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium">
-                  <X size={18} />
+                  <XIcon size={18} />
                   <span>Reject (Other)</span>
                 </button>
               </div>
@@ -483,7 +497,7 @@ const handleViewPDF = (research) => {
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-3 bg-red-100 rounded-xl">
-                <X className="w-6 h-6 text-red-600" />
+                <XIcon className="w-6 h-6 text-red-600" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900">Reject Research</h3>
             </div>
@@ -501,7 +515,7 @@ const handleViewPDF = (research) => {
               <button onClick={() => { setSelectedResearch(null); setReviewNotes(''); }} className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-medium text-gray-700">
                 Cancel
               </button>
-              <button onClick={() => handleReject(selectedResearch._id)} className="flex-1 px-6 py-3 bg-gradient-to--r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium">
+              <button onClick={() => handleReject(selectedResearch._id)} className="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium">
                 Reject & Send Feedback
               </button>
             </div>
