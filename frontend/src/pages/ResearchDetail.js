@@ -209,14 +209,14 @@ const handleViewPDF = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-8 pb-8 border-b">
-            {/* VIEW PDF Button */}
-            <button
-              onClick={handleViewPDF}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition font-medium shadow-md"
-            >
-              <ExternalLink size={20} />
-              <span>View PDF</span>
-            </button>
+         {/* VIEW IN SECURE VIEWER Button */}
+<button
+  onClick={() => navigate(`/document/view/${research._id}`)}
+  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition font-medium shadow-md"
+>
+  <Eye size={20} />
+  <span>View in Secure Viewer</span>
+</button>
 
             {/* DOWNLOAD PDF Button */}
             <button

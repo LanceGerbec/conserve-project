@@ -24,6 +24,8 @@ import UserManagement from './pages/UserManagement';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AdminResearchManagement from './pages/AdminResearchManagement';
 import ErrorBoundary from './components/ErrorBoundary';
+import AdminAuthorizedNumbers from './pages/AdminAuthorizedNumbers';
+import SecureDocumentViewer from './pages/SecureDocumentViewer';
 
 import './index.css';
 
@@ -106,6 +108,16 @@ function App() {
                  </ProtectedRoute>
                  }
               />
+
+              <Route
+  path="/document/view/:id"
+  element={
+    <ProtectedRoute>
+      <SecureDocumentViewer />
+    </ProtectedRoute>
+  }
+/>
+
 
               {/* 404 - Page Not Found */}
               <Route

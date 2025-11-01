@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingButton from '../components/LoadingButton';
-import { Eye, EyeOff, X, Stethoscope, Shield, Users, BookOpen } from 'lucide-react';
+import { Eye, EyeOff, Stethoscope, BookOpen, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Register = () => {
@@ -23,6 +23,12 @@ const Register = () => {
     role: 'student',
     studentId: ''
   });
+
+  const [studentIdVerification, setStudentIdVerification] = useState({
+  status: 'idle', // idle | checking | verified | invalid
+  message: ''
+});
+const [canProceed, setCanProceed] = useState(false);
 
   // Optimized particle animation - matching home page
   useEffect(() => {
@@ -146,19 +152,30 @@ const Register = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!agreedToTerms) {
-      toast.error('Please agree to the Terms and Privacy Policy');
-      setShowTermsModal(true);
-      return;
-    }
+  if (!agreedToTerms) {
+    toast.error('Please agree to the Terms and Privacy Policy');
+    setShowTermsModal(true);
+    return;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match!');
-      return;
-    }
+  // ==========================================
+  // NEW: CHECK STUDENT NUMBER VERIFICATION
+  // ==========================================
+  if (studentIdVerification.status !== 'verified') {
+    toast.error('Please verify your student/faculty number first');
+    return;
+  }
+  // ==========================================
+
+  if (formData.password !== formData.confirmPassword) {
+    toast.error('Passwords do not match!');
+    return;
+  }
+
+  // ... rest of the submit logic stays the same
 
     if (formData.password.length < 6) {
       toast.error('Password must be at least 6 characters!');
@@ -185,12 +202,53 @@ const Register = () => {
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+const handleChange = (e) => {
+  const { name, value } = e.target;
+  
+  setFormData({
+    ...formData,
+    [name]: value
+  });
+
+// Verify student number in real-time
+const verifyStudentNumber = async () => {
+  if (!formData.studentId.trim()) {
+    toast.error('Please enter your student/faculty number');
+    return;
+  }
+
+  setStudentIdVerification({ status: 'checking', message: 'Verifying...' });
+
+  try {
+    const { data } = await api.post('/verification/check-number', {
+      studentNumber: formData.studentId
     });
-  };
+
+    if (data.isAuthorized) {
+      setStudentIdVerification({ 
+        status: 'verified', 
+        message: '✓ Number verified! You can proceed with registration.' 
+      });
+      setCanProceed(true);
+      toast.success('Student number verified!');
+    }
+  } catch (error) {
+    const message = error.response?.data?.message || 'Verification failed';
+    setStudentIdVerification({ 
+      status: 'invalid', 
+      message: `✗ ${message}` 
+    });
+    setCanProceed(false);
+    toast.error(message);
+  }
+};
+
+  // Reset verification when student ID changes
+  if (name === 'studentId') {
+    setStudentIdVerification({ status: 'idle', message: '' });
+    setCanProceed(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
@@ -303,22 +361,80 @@ const Register = () => {
                   </select>
                 </div>
 
-                {formData.role === 'student' && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Student ID
-                    </label>
-                    <input
-                      type="text"
-                      name="studentId"
-                      value={formData.studentId}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-navy-500 focus:border-transparent transition-all"
-                      placeholder="2024-12345"
-                      required
-                    />
-                  </div>
-                )}
+              <div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    {formData.role === 'student' ? 'Student Number' : 'Faculty Number'} *
+  </label>
+  <div className="space-y-2">
+    <div className="flex gap-2">
+      <input
+        type="text"
+        name="studentId"
+        value={formData.studentId}
+        onChange={handleChange}
+        className={`flex-1 px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-navy-500 focus:border-transparent transition-all ${
+          studentIdVerification.status === 'verified' 
+            ? 'border-green-500 bg-green-50' 
+            : studentIdVerification.status === 'invalid'
+            ? 'border-red-500 bg-red-50'
+            : 'border-gray-200'
+        }`}
+        placeholder="2024-12345"
+        required
+        disabled={studentIdVerification.status === 'verified'}
+      />
+      <button
+        type="button"
+        onClick={verifyStudentNumber}
+        disabled={studentIdVerification.status === 'checking' || studentIdVerification.status === 'verified'}
+        className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+          studentIdVerification.status === 'verified'
+            ? 'bg-green-600 text-white cursor-not-allowed'
+            : 'bg-navy-700 text-white hover:bg-navy-800'
+        }`}
+      >
+        {studentIdVerification.status === 'checking' && '⏳'}
+        {studentIdVerification.status === 'verified' && '✓'}
+        {(studentIdVerification.status === 'idle' || studentIdVerification.status === 'invalid') && 'Verify'}
+      </button>
+    </div>
+
+    {/* Verification Status Messages */}
+    {studentIdVerification.status === 'checking' && (
+      <div className="flex items-center space-x-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+        <div className="spinner-small"></div>
+        <span>{studentIdVerification.message}</span>
+      </div>
+    )}
+
+    {studentIdVerification.status === 'verified' && (
+      <div className="flex items-center space-x-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
+        <CheckCircle className="w-4 h-4" />
+        <span className="font-medium">{studentIdVerification.message}</span>
+      </div>
+    )}
+
+    {studentIdVerification.status === 'invalid' && (
+      <div className="flex items-start space-x-2 text-sm text-red-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+        <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium">{studentIdVerification.message}</p>
+          <p className="text-xs mt-1">Contact your administrator to get authorized.</p>
+        </div>
+      </div>
+    )}
+
+    {studentIdVerification.status === 'idle' && (
+      <div className="flex items-start space-x-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium">⚠️ Verification Required</p>
+          <p className="text-xs mt-1">You must verify your student/faculty number before registering.</p>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
               </div>
 
               {/* Password Fields */}
@@ -402,14 +518,14 @@ const Register = () => {
               </div>
 
               {/* Submit Button */}
-              <LoadingButton
-                type="submit"
-                loading={loading}
-                disabled={!agreedToTerms}
-                className="w-full bg-gradient-to-r from-navy-700 to-blue-800 hover:from-navy-800 hover:to-blue-900 text-white px-6 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 mt-6 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                Create Account
-              </LoadingButton>
+             <LoadingButton
+  type="submit"
+  loading={loading}
+  disabled={!agreedToTerms || !canProceed}
+  className="w-full bg-gradient-to-r from-navy-700 to-blue-800 hover:from-navy-800 hover:to-blue-900 text-white px-6 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+>
+  Create Account
+</LoadingButton>
             </form>
 
             <div className="mt-6 text-center text-sm text-gray-600">
