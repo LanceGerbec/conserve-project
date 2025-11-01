@@ -76,7 +76,7 @@ router.post('/register', [
 });
 
 // @route   POST /api/auth/register
-// @desc    Register new user (NOW WITH STUDENT NUMBER VERIFICATION)
+// @desc    Register new user (WITH STUDENT NUMBER VERIFICATION)
 // @access  Public
 router.post('/register', [
   // Validation rules
@@ -85,7 +85,7 @@ router.post('/register', [
   body('email').isEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('role').isIn(['student', 'faculty']).withMessage('Invalid role'),
-  body('studentId').trim().notEmpty().withMessage('Student number is required')
+  body('studentId').trim().notEmpty().withMessage('Student/Faculty number is required')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -109,7 +109,7 @@ router.post('/register', [
 
     if (!authorized) {
       return res.status(400).json({ 
-        message: 'This student number is not authorized or has already been used. Please contact the administrator.' 
+        message: 'This student/faculty number is not authorized or has already been used. Please contact the administrator.' 
       });
     }
     // ==========================================
