@@ -50,20 +50,20 @@ app.use(cors({
       callback(null, true);
     } else {
       console.warn(`⚠️ CORS blocked: ${origin}`);
-      callback(null, true); // TEMPORARY: Allow all origins for debugging
+      callback(null, true); // Allow all origins for now
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // 24 hours
+  maxAge: 86400
 }));
 
 // Handle preflight requests
 app.options('*', cors());
 
-// Security - AFTER CORS
+// Security
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
@@ -72,6 +72,7 @@ app.use(helmet({
 // Body parsing
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
 // Session tracking for document access logging
 app.use(sessionTracking);
 
@@ -80,15 +81,14 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Rate limiting - More permissive for development
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 100 : 1000,
   message: 'Too many requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for health checks
     return req.path === '/api/health' || req.path === '/';
   }
 });
@@ -134,13 +134,7 @@ app.get('/api/health', (req, res) => {
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    storage: 'Cloudinary',
-    env: {
-      nodeEnv: process.env.NODE_ENV,
-      hasMongoUri: !!process.env.MONGODB_URI,
-      hasJwtSecret: !!process.env.JWT_SECRET,
-      hasCloudinary: !!process.env.CLOUDINARY_CLOUD_NAME
-    }
+    storage: 'Cloudinary'
   });
 });
 
@@ -181,10 +175,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('='.repeat(50) + '\n');
 });
 
-// ==========================================
-// START SCHEDULED TASKS
-// ==========================================
-scheduleLogPurge(); // Auto-purge old logs weekly
+// Scheduled tasks
+scheduleLogPurge();
 console.log('✅ Scheduled tasks initialized');
 
 // Graceful shutdown
