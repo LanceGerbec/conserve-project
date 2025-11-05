@@ -1,12 +1,15 @@
-// src/utils/api.js - FIXED VERSION
+// src/utils/api.js - AUTO-DETECT ENVIRONMENT
 import axios from 'axios';
 
-// API Configuration
+// ============================================
+// AUTOMATIC ENVIRONMENT DETECTION
+// ============================================
 const getApiUrl = () => {
   // Production: Use environment variable
-  if (window.location.hostname !== 'localhost') {
+  if (process.env.NODE_ENV === 'production') {
     return process.env.REACT_APP_API_URL || 'https://conserve-backend.vercel.app/api';
   }
+  
   // Development: Use localhost
   return process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 };
@@ -17,10 +20,12 @@ const api = axios.create({
     'Content-Type': 'application/json'
   },
   timeout: 30000, // 30 seconds
-  withCredentials: false // Set to false for Vercel
+  withCredentials: false
 });
 
-console.log('🔗 API URL:', getApiUrl());
+console.log('🔗 API Configuration:');
+console.log('   Environment:', process.env.NODE_ENV);
+console.log('   API URL:', getApiUrl());
 
 // Add token to every request
 api.interceptors.request.use(
@@ -63,7 +68,6 @@ api.interceptors.response.use(
     // Handle network errors
     if (!error.response) {
       console.error('🌐 Network Error - Backend might be down');
-      // toast.error('Cannot connect to server. Please try again.');
     }
     
     return Promise.reject(error);

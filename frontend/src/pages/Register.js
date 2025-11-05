@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LoadingButton from '../components/LoadingButton';
-import { Eye, EyeOff, Stethoscope, BookOpen, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Stethoscope, BookOpen, CheckCircle, XCircle, AlertCircle, Users, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../utils/api';
 
 const Register = () => {
   const { register } = useAuth();
