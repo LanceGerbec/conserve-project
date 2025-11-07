@@ -1,6 +1,4 @@
-// models/Research.js
-// Purpose: Defines structure for research papers
-
+// models/Research.js - UPDATED WITH COMPLETED/PUBLISHED STATUS
 const mongoose = require('mongoose');
 
 const researchSchema = new mongoose.Schema({
@@ -42,6 +40,12 @@ const researchSchema = new mongoose.Schema({
   coverImage: {
     type: String
   },
+  // NEW: Publication workflow status
+  publicationStatus: {
+    type: String,
+    enum: ['completed', 'published'], // completed = finalized but not public, published = visible on homepage
+    default: 'completed'
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
@@ -73,6 +77,18 @@ const researchSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // NEW: DOI support (optional)
+  doi: {
+    type: String,
+    trim: true,
+    sparse: true
+  },
+  // NEW: Category for organization
+  category: {
+    type: String,
+    enum: ['thesis', 'dissertation', 'journal', 'conference', 'other'],
+    default: 'other'
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -82,6 +98,8 @@ const researchSchema = new mongoose.Schema({
     default: Date.now
   },
   approvedAt: Date,
+  // NEW: Published date (when moved to published section)
+  publishedAt: Date,
   updatedAt: {
     type: Date,
     default: Date.now
@@ -90,5 +108,6 @@ const researchSchema = new mongoose.Schema({
 
 // Index for faster searching
 researchSchema.index({ title: 'text', abstract: 'text', keywords: 'text' });
+researchSchema.index({ publicationStatus: 1, status: 1 });
 
 module.exports = mongoose.model('Research', researchSchema);

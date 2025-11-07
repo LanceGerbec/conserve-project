@@ -1,11 +1,15 @@
-// routes/admin.js - COMPLETE FILE WITH PDF FIX
+// routes/admin.js - ENHANCED WITH COMPLETED/PUBLISHED MANAGEMENT
 const express = require('express');
 const router = express.Router();
 const Research = require('../models/Research');
 const SubjectArea = require('../models/SubjectArea');
 const User = require('../models/User');
+const AuthorizedNumber = require('../models/AuthorizedNumber');
 const { protect, adminOnly } = require('../middleware/auth');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/email');
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
 
 function getViewableCloudinaryUrl(url) {
   if (!url || !url.includes('cloudinary.com')) {
@@ -42,7 +46,149 @@ router.get('/subjects', async (req, res) => {
 router.use(protect);
 router.use(adminOnly);
 
-// ✅ UPDATE: Get all research
+// ==========================================
+// NEW: COMPLETED RESEARCH MANAGEMENT
+// ==========================================
+
+/**
+ * @route   GET /api/admin/research/completed
+ * @desc    Get all completed (finalized but not published) research
+ * @access  Admin only
+ */
+router.get('/research/completed', async (req, res) => {
+  try {
+    let researches = await Research.find({ 
+      publicationStatus: 'completed',
+      status: 'approved',
+      isActive: true 
+    })
+      .populate('subjectArea', 'name')
+      .populate('submittedBy', 'firstName lastName email')
+      .sort({ approvedAt: -1 });
+
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      if (obj.coverImage) {
+        obj.coverImage = getViewableCloudinaryUrl(obj.coverImage);
+      }
+      return obj;
+    });
+
+    res.json({ success: true, researches, count: researches.length });
+  } catch (error) {
+    console.error('Get completed research error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   GET /api/admin/research/published
+ * @desc    Get all published research (visible on homepage)
+ * @access  Admin only
+ */
+router.get('/research/published', async (req, res) => {
+  try {
+    let researches = await Research.find({ 
+      publicationStatus: 'published',
+      status: 'approved',
+      isActive: true 
+    })
+      .populate('subjectArea', 'name')
+      .populate('submittedBy', 'firstName lastName email')
+      .sort({ publishedAt: -1 });
+
+    researches = researches.map(r => {
+      const obj = r.toObject();
+      if (obj.pdfUrl) {
+        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      if (obj.coverImage) {
+        obj.coverImage = getViewableCloudinaryUrl(obj.coverImage);
+      }
+      return obj;
+    });
+
+    res.json({ success: true, researches, count: researches.length });
+  } catch (error) {
+    console.error('Get published research error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/research/:id/publish
+ * @desc    Move research from completed to published
+ * @access  Admin only
+ */
+router.put('/research/:id/publish', async (req, res) => {
+  try {
+    const research = await Research.findById(req.params.id);
+
+    if (!research) {
+      return res.status(404).json({ success: false, message: 'Research not found' });
+    }
+
+    if (research.status !== 'approved') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Only approved research can be published' 
+      });
+    }
+
+    research.publicationStatus = 'published';
+    research.publishedAt = new Date();
+    research.updatedAt = Date.now();
+
+    await research.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Research published successfully',
+      research 
+    });
+  } catch (error) {
+    console.error('Publish research error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/research/:id/unpublish
+ * @desc    Move research from published back to completed
+ * @access  Admin only
+ */
+router.put('/research/:id/unpublish', async (req, res) => {
+  try {
+    const research = await Research.findById(req.params.id);
+
+    if (!research) {
+      return res.status(404).json({ success: false, message: 'Research not found' });
+    }
+
+    research.publicationStatus = 'completed';
+    research.updatedAt = Date.now();
+
+    await research.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Research moved to completed section',
+      research 
+    });
+  } catch (error) {
+    console.error('Unpublish research error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ==========================================
+// EXISTING ROUTES (UPDATED)
+// ==========================================
+
+// Get all research
 router.get('/research/all', async (req, res) => {
   try {
     let researches = await Research.find({ isActive: true })
@@ -50,11 +196,13 @@ router.get('/research/all', async (req, res) => {
       .populate('submittedBy', 'firstName lastName email')
       .sort({ submittedAt: -1 });
 
-    // ✅ Convert URLs
     researches = researches.map(r => {
       const obj = r.toObject();
       if (obj.pdfUrl) {
         obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      if (obj.coverImage) {
+        obj.coverImage = getViewableCloudinaryUrl(obj.coverImage);
       }
       return obj;
     });
@@ -66,7 +214,7 @@ router.get('/research/all', async (req, res) => {
   }
 });
 
-// ✅ UPDATE: Get pending research
+// Get pending research
 router.get('/research/pending', async (req, res) => {
   try {
     let researches = await Research.find({ status: 'pending' })
@@ -74,11 +222,13 @@ router.get('/research/pending', async (req, res) => {
       .populate('submittedBy', 'firstName lastName email')
       .sort({ submittedAt: -1 });
 
-    // ✅ Convert URLs
     researches = researches.map(r => {
       const obj = r.toObject();
       if (obj.pdfUrl) {
         obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
+      }
+      if (obj.coverImage) {
+        obj.coverImage = getViewableCloudinaryUrl(obj.coverImage);
       }
       return obj;
     });
@@ -90,34 +240,10 @@ router.get('/research/pending', async (req, res) => {
   }
 });
 
-// ⭐ UPDATED: Get pending research
-router.get('/research/pending', async (req, res) => {
-  try {
-    let researches = await Research.find({ status: 'pending' })
-      .populate('subjectArea', 'name')
-      .populate('submittedBy', 'firstName lastName email')
-      .sort({ submittedAt: -1 });
-
-    // ✅ Convert URLs to viewable format
-    researches = researches.map(r => {
-      const obj = r.toObject();
-      if (obj.pdfUrl) {
-        obj.pdfUrl = getViewableCloudinaryUrl(obj.pdfUrl);
-      }
-      return obj;
-    });
-
-    res.json({ success: true, researches });
-  } catch (error) {
-    console.error('Get pending research error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Update research details
+// Update research details (ENHANCED with new fields)
 router.put('/research/:id', async (req, res) => {
   try {
-    const { title, subjectArea, yearPublished } = req.body;
+    const { title, subjectArea, yearPublished, category, doi, publicationStatus } = req.body;
 
     const research = await Research.findById(req.params.id);
     if (!research) {
@@ -128,6 +254,9 @@ router.put('/research/:id', async (req, res) => {
     if (title) research.title = title;
     if (subjectArea) research.subjectArea = subjectArea;
     if (yearPublished) research.yearPublished = yearPublished;
+    if (category) research.category = category;
+    if (doi !== undefined) research.doi = doi;
+    if (publicationStatus) research.publicationStatus = publicationStatus;
     research.updatedAt = Date.now();
 
     await research.save();
@@ -143,7 +272,7 @@ router.put('/research/:id', async (req, res) => {
   }
 });
 
-// Approve research
+// Approve research (UPDATED - defaults to completed status)
 router.put('/research/:id/approve', async (req, res) => {
   try {
     const research = await Research.findById(req.params.id)
@@ -154,6 +283,7 @@ router.put('/research/:id/approve', async (req, res) => {
     }
 
     research.status = 'approved';
+    research.publicationStatus = 'completed'; // Default to completed
     research.approvedAt = new Date();
     research.reviewedBy = req.user.id;
     await research.save();
@@ -167,7 +297,7 @@ router.put('/research/:id/approve', async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'Research approved',
+      message: 'Research approved and moved to completed section',
       research 
     });
   } catch (error) {
@@ -238,6 +368,10 @@ router.delete('/research/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// ==========================================
+// SUBJECT AREA MANAGEMENT
+// ==========================================
 
 // Create subject
 router.post('/subjects', async (req, res) => {
@@ -316,6 +450,10 @@ router.delete('/subjects/:id', async (req, res) => {
   }
 });
 
+// ==========================================
+// USER MANAGEMENT
+// ==========================================
+
 // Get all users
 router.get('/users', async (req, res) => {
   try {
@@ -361,19 +499,10 @@ router.put('/users/:id/toggle-status', async (req, res) => {
 // AUTHORIZED NUMBERS MANAGEMENT
 // ==========================================
 
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
-const AuthorizedNumber = require('../models/AuthorizedNumber');
-
 const uploadCSV = multer({ dest: 'uploads/temp/' });
 
-// @route   POST /api/admin/authorized-numbers/bulk-upload
-// @desc    Bulk upload authorized student numbers via CSV
-// @access  Admin only
+// Bulk upload
 router.post('/authorized-numbers/bulk-upload', 
-  protect, 
-  adminOnly, 
   uploadCSV.single('file'),
   async (req, res) => {
     try {
@@ -387,11 +516,9 @@ router.post('/authorized-numbers/bulk-upload',
       const results = [];
       const errors = [];
 
-      // Read CSV file
       fs.createReadStream(req.file.path)
         .pipe(csv())
         .on('data', (row) => {
-          // Expected CSV format: studentNumber, type, firstName, lastName, program, yearLevel
           if (row.studentNumber && row.studentNumber.trim()) {
             results.push({
               studentNumber: row.studentNumber.trim().toUpperCase(),
@@ -406,7 +533,6 @@ router.post('/authorized-numbers/bulk-upload',
         })
         .on('end', async () => {
           try {
-            // Bulk insert with error handling
             const inserted = [];
             for (const record of results) {
               try {
@@ -431,7 +557,6 @@ router.post('/authorized-numbers/bulk-upload',
               }
             }
 
-            // Clean up temp file
             fs.unlinkSync(req.file.path);
 
             res.json({
@@ -470,10 +595,8 @@ router.post('/authorized-numbers/bulk-upload',
   }
 );
 
-// @route   GET /api/admin/authorized-numbers
-// @desc    Get all authorized numbers
-// @access  Admin only
-router.get('/authorized-numbers', protect, adminOnly, async (req, res) => {
+// Get all authorized numbers
+router.get('/authorized-numbers', async (req, res) => {
   try {
     const { page = 1, limit = 50, search, status } = req.query;
 
@@ -523,10 +646,8 @@ router.get('/authorized-numbers', protect, adminOnly, async (req, res) => {
   }
 });
 
-// @route   POST /api/admin/authorized-numbers
-// @desc    Add single authorized number
-// @access  Admin only
-router.post('/authorized-numbers', protect, adminOnly, async (req, res) => {
+// Add single authorized number
+router.post('/authorized-numbers', async (req, res) => {
   try {
     const { studentNumber, type, firstName, lastName, program, yearLevel } = req.body;
 
@@ -574,10 +695,8 @@ router.post('/authorized-numbers', protect, adminOnly, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/admin/authorized-numbers/:id
-// @desc    Delete authorized number
-// @access  Admin only
-router.delete('/authorized-numbers/:id', protect, adminOnly, async (req, res) => {
+// Delete authorized number
+router.delete('/authorized-numbers/:id', async (req, res) => {
   try {
     const authorized = await AuthorizedNumber.findById(req.params.id);
 
@@ -610,10 +729,8 @@ router.delete('/authorized-numbers/:id', protect, adminOnly, async (req, res) =>
   }
 });
 
-// @route   GET /api/admin/authorized-numbers/stats
-// @desc    Get statistics
-// @access  Admin only
-router.get('/authorized-numbers/stats', protect, adminOnly, async (req, res) => {
+// Get statistics
+router.get('/authorized-numbers/stats', async (req, res) => {
   try {
     const [total, used, unused, byType] = await Promise.all([
       AuthorizedNumber.countDocuments(),
