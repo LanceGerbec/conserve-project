@@ -26,6 +26,7 @@ import AdminResearchManagement from './pages/AdminResearchManagement';
 import ErrorBoundary from './components/ErrorBoundary';
 import AdminAuthorizedNumbers from './pages/AdminAuthorizedNumbers';
 import SecureDocumentViewer from './pages/SecureDocumentViewer';
+import AccessGateway from './pages/AccessGateway';
 
 import './index.css';
 
