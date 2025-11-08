@@ -94,7 +94,12 @@ router.get('/', async (req, res) => {
       sort = 'recent' 
     } = req.query;
 
-    let query = { status: 'approved', isActive: true };
+    // ✅ UPDATED: Only show published research on homepage
+    let query = { 
+      status: 'approved', 
+      isActive: true,
+      publicationStatus: 'published' // NEW: Only published research
+    };
 
     if (subjectArea && mongoose.Types.ObjectId.isValid(subjectArea)) {
       query.subjectArea = subjectArea;
