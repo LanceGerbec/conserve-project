@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { 
+  
   Clock, 
   Check, 
   XIcon, 
@@ -20,7 +21,8 @@ import {
   CheckCircle,
   Edit2, 
   Plus, 
-  Trash2
+  Trash2,
+  Globe
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -241,6 +243,24 @@ const AdminDashboard = () => {
               </div>
               <h3 className="text-xl font-bold text-white mb-1">Authorized Numbers</h3>
               <p className="text-sm text-green-100 mb-4">Control registrations</p>
+              <div className="flex items-center text-white text-sm font-medium">
+                <span className="group-hover:mr-2 transition-all">View all</span>
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+              </div>
+            </div>
+          </Link>
+
+          <Link to="/admin/workflow" className="group relative overflow-hidden bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-600 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-white bg-opacity-20 rounded-xl backdrop-blur-sm">
+                  <Globe className="w-6 h-6 text-white" />
+                </div>
+                <span className="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs text-white font-medium backdrop-blur-sm">Workflow</span>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-1">Publication Workflow</h3>
+              <p className="text-sm text-cyan-100 mb-4">Manage completed & published</p>
               <div className="flex items-center text-white text-sm font-medium">
                 <span className="group-hover:mr-2 transition-all">View all</span>
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>

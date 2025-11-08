@@ -27,6 +27,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminAuthorizedNumbers from './pages/AdminAuthorizedNumbers';
 import SecureDocumentViewer from './pages/SecureDocumentViewer';
 import AccessGateway from './pages/AccessGateway';
+import AdminResearchWorkflow from './pages/AdminResearchWorkflow';
 
 import './index.css';
 
@@ -48,6 +49,7 @@ function App() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/research/:id" element={<ResearchDetail />} />
+              <Route path="/access-gateway" element={<AccessGateway />} />
 
               {/* Protected Routes - REQUIRES LOGIN */}
               <Route
@@ -108,6 +110,15 @@ function App() {
                  <AdminResearchManagement />
                  </ProtectedRoute>
                  }
+              />
+
+              <Route
+                path="/admin/workflow"
+                element={
+                  <ProtectedRoute adminOnly>
+                    <AdminResearchWorkflow />
+                  </ProtectedRoute>
+                }
               />
 
               <Route
